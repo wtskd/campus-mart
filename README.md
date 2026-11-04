@@ -1,5 +1,14 @@
 # 校园易站 CampusMart —— 校园二手交易平台（多端微服务）
 
+![Java](https://img.shields.io/badge/Java-17-orange)
+![Spring Cloud Alibaba](https://img.shields.io/badge/Spring%20Cloud%20Alibaba-2023.0.1.0-6DB33F)
+![Vue](https://img.shields.io/badge/Vue-3.4-42b883)
+![uni-app](https://img.shields.io/badge/uni--app-H5%20%2B%20%E5%BE%AE%E4%BF%A1%E5%B0%8F%E7%A8%8B%E5%BA%8F-2b9939)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1)
+![LLM](https://img.shields.io/badge/LLM-DeepSeek%20%2B%20Ollama-1f6feb)
+
+> 仓库地址：<https://github.com/wtskd/campus-mart>
+>
 > 企业实习结课项目 · 个人项目 · 2026.10.12 – 2026.12.30
 >
 > 技术栈：Spring Cloud Alibaba + Vue3 + uni-app + MySQL + Redis + Nacos + 大模型（DeepSeek / Ollama / 模板兜底）
