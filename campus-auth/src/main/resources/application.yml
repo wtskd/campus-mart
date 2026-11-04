@@ -1,0 +1,47 @@
+server:
+  port: 9200
+
+spring:
+  application:
+    name: campus-auth
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: 0
+      timeout: 5000ms
+  jackson:
+    time-zone: Asia/Shanghai
+
+campus:
+  jwt:
+    secret: ${JWT_SECRET:CampusMart@2026#JwtSecretKeyForDemoOnly!}
+    expire: 7200
+  auth:
+    # 演示环境建议 true；做接口压测时可设 false
+    captcha-enabled: ${CAPTCHA_ENABLED:true}
+
+# Feign 调用超时
+spring.cloud.openfeign:
+  client:
+    config:
+      default:
+        connect-timeout: 3000
+        read-timeout: 10000
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+logging:
+  level:
+    com.campus: info
+    com.campus.api.feign: info

@@ -1,0 +1,25 @@
+{
+  "name": "campus-admin-web",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "CampusMart 校园易站 - 后台管理前端（Vue3 + Vite5 + Element Plus）",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/preview.mjs"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "axios": "^1.7.7",
+    "echarts": "^5.5.1",
+    "element-plus": "^2.6.3",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.8"
+  }
+}

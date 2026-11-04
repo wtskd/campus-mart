@@ -1,0 +1,586 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campus.analysis.mapper.StatCustomMapper">
+
+    <!--
+        统计口径说明（与 docs/05-backend-conventions.md 一致）：
+        1. 成交订单 = biz_order.status = 2；下单数按 create_time 归属，成交额按 finish_time（缺失回退 create_time）归属；
+        2. 漏斗：曝光 = 区间内发布商品的 view_count 汇总，收藏 = biz_favorite 行数，下单 = biz_order 行数，
+           支付 = pay_time 非空，成交 = status = 2；
+        3. 活跃用户 = 当日有下单或收藏行为的去重用户；普通学生 = sys_user.user_type = '01'；
+        4. 分类统一归一化到一级分类：parent_id = 0 为一级分类，子分类向上取父级；
+        5. 金额 BigDecimal，比例在 Java 层保留 4 位小数。
+    -->
+
+    <!-- ============================ 一、实时聚合 ============================ -->
+
+    <!-- 按天聚合：订单/成交/新增用户/发布商品/收藏/AI/活跃（天数由参数区间决定，缺失日期由 Java 补 0） -->
+    <select id="selectDailyStats" resultType="com.campus.analysis.dto.DailyStatRow">
+        SELECT
+            stat_days.stat_date AS stat_date,
+            IFNULL(f.gmv, 0)                 AS gmv,
+            IFNULL(o.order_count, 0)         AS order_count,
+            IFNULL(f.finish_order_count, 0)  AS finish_order_count,
+            IFNULL(o.cancel_order_count, 0)  AS cancel_order_count,
+            IFNULL(i.item_publish_count, 0)  AS item_publish_count,
+            IFNULL(f.finish_order_count, 0)  AS item_sold_count,
+            IFNULL(u.new_user_count, 0)      AS new_user_count,
+            IFNULL(act.active_user_count, 0) AS active_user_count,
+            IFNULL(i.view_count, 0)          AS view_count,
+            IFNULL(fav.favorite_count, 0)    AS favorite_count,
+            IFNULL(a.ai_call_count, 0)       AS ai_call_count
+        FROM (
+            SELECT DATE(create_time) AS stat_date FROM biz_order
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(COALESCE(finish_time, create_time)) FROM biz_order
+            WHERE status = 2
+              AND COALESCE(finish_time, create_time) &gt;= #{startDate}
+              AND COALESCE(finish_time, create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(create_time) FROM sys_user
+            WHERE user_type = '01' AND del_flag = '0'
+              AND create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(create_time) FROM biz_item
+            WHERE del_flag = '0'
+              AND create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(create_time) FROM biz_favorite
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(create_time) FROM ai_call_log
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        ) stat_days
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, COUNT(*) AS order_count,
+                   SUM(CASE WHEN status IN (3, 4, 5) THEN 1 ELSE 0 END) AS cancel_order_count
+            FROM biz_order
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) o ON o.d = stat_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(COALESCE(finish_time, create_time)) AS d, COUNT(*) AS finish_order_count,
+                   IFNULL(SUM(amount), 0) AS gmv
+            FROM biz_order
+            WHERE status = 2
+              AND COALESCE(finish_time, create_time) &gt;= #{startDate}
+              AND COALESCE(finish_time, create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(COALESCE(finish_time, create_time))
+        ) f ON f.d = stat_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, COUNT(*) AS new_user_count
+            FROM sys_user
+            WHERE user_type = '01' AND del_flag = '0'
+              AND create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) u ON u.d = stat_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, COUNT(*) AS item_publish_count, IFNULL(SUM(view_count), 0) AS view_count
+            FROM biz_item
+            WHERE del_flag = '0'
+              AND create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) i ON i.d = stat_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, COUNT(*) AS favorite_count
+            FROM biz_favorite
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) fav ON fav.d = stat_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, COUNT(*) AS ai_call_count
+            FROM ai_call_log
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) a ON a.d = stat_days.stat_date
+        LEFT JOIN (
+            SELECT x.d AS d, COUNT(DISTINCT x.user_id) AS active_user_count
+            FROM (
+                SELECT DATE(create_time) AS d, buyer_id AS user_id FROM biz_order
+                WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+                UNION ALL
+                SELECT DATE(create_time) AS d, user_id FROM biz_favorite
+                WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            ) x
+            GROUP BY x.d
+        ) act ON act.d = stat_days.stat_date
+        ORDER BY stat_days.stat_date
+    </select>
+
+    <!-- 按天漏斗：曝光 / 收藏 / 下单 / 支付 / 成交 -->
+    <select id="selectFunnelDaily" resultType="com.campus.analysis.dto.FunnelRow">
+        SELECT
+            funnel_days.stat_date AS stat_date,
+            IFNULL(v.view_count, 0)         AS view_count,
+            IFNULL(f.favorite_count, 0)     AS favorite_count,
+            IFNULL(o.order_count, 0)        AS order_count,
+            IFNULL(p.pay_count, 0)          AS pay_count,
+            IFNULL(fin.finish_count, 0)     AS finish_count
+        FROM (
+            SELECT DATE(create_time) AS stat_date FROM biz_favorite
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(create_time) FROM biz_order
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(COALESCE(finish_time, create_time)) FROM biz_order
+            WHERE status = 2
+              AND COALESCE(finish_time, create_time) &gt;= #{startDate}
+              AND COALESCE(finish_time, create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            UNION
+            SELECT DATE(create_time) FROM biz_item
+            WHERE del_flag = '0'
+              AND create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        ) funnel_days
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, IFNULL(SUM(view_count), 0) AS view_count
+            FROM biz_item
+            WHERE del_flag = '0'
+              AND create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) v ON v.d = funnel_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, COUNT(*) AS favorite_count
+            FROM biz_favorite
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) f ON f.d = funnel_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(create_time) AS d, COUNT(*) AS order_count
+            FROM biz_order
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(create_time)
+        ) o ON o.d = funnel_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(pay_time) AS d, COUNT(*) AS pay_count
+            FROM biz_order
+            WHERE pay_time IS NOT NULL
+              AND pay_time &gt;= #{startDate} AND pay_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(pay_time)
+        ) p ON p.d = funnel_days.stat_date
+        LEFT JOIN (
+            SELECT DATE(COALESCE(finish_time, create_time)) AS d, COUNT(*) AS finish_count
+            FROM biz_order
+            WHERE status = 2
+              AND COALESCE(finish_time, create_time) &gt;= #{startDate}
+              AND COALESCE(finish_time, create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            GROUP BY DATE(COALESCE(finish_time, create_time))
+        ) fin ON fin.d = funnel_days.stat_date
+        ORDER BY funnel_days.stat_date
+    </select>
+
+    <!-- 各一级分类成交金额 / 成交件数（实时聚合） -->
+    <select id="selectCategoryAgg" resultType="com.campus.analysis.dto.CategoryAggRow">
+        SELECT
+            p.category_id AS category_id,
+            MAX(p.category_name) AS category_name,
+            COUNT(*) AS order_count,
+            IFNULL(SUM(o.amount), 0) AS gmv
+        FROM biz_order o
+        JOIN biz_item i ON i.item_id = o.item_id
+        JOIN biz_category c ON c.category_id = i.category_id
+        JOIN biz_category p ON p.category_id = IF(c.parent_id = 0, c.category_id, c.parent_id)
+        WHERE o.status = 2
+          AND COALESCE(o.finish_time, o.create_time) &gt;= #{startDate}
+          AND COALESCE(o.finish_time, o.create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY p.category_id
+        ORDER BY gmv DESC
+    </select>
+
+    <!-- 留存：活跃 = 当日有下单或收藏行为的用户；只统计近 30 天 -->
+    <select id="selectRetentionRows" resultType="com.campus.analysis.dto.RetentionRow">
+        WITH activity AS (
+            SELECT DISTINCT buyer_id AS user_id, DATE(create_time) AS act_date FROM biz_order
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 8 DAY)
+            UNION
+            SELECT DISTINCT user_id, DATE(create_time) FROM biz_favorite
+            WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 8 DAY)
+        ),
+        cohort AS (
+            SELECT user_id, act_date FROM activity
+            WHERE act_date &gt;= #{startDate} AND act_date &lt;= #{endDate}
+        )
+        SELECT c.act_date AS cohort_date,
+               COUNT(DISTINCT c.user_id) AS active_users,
+               COUNT(DISTINCT CASE WHEN a.act_date = DATE_ADD(c.act_date, INTERVAL 1 DAY) THEN c.user_id END) AS retained1,
+               COUNT(DISTINCT CASE WHEN a.act_date = DATE_ADD(c.act_date, INTERVAL 3 DAY) THEN c.user_id END) AS retained3,
+               COUNT(DISTINCT CASE WHEN a.act_date = DATE_ADD(c.act_date, INTERVAL 7 DAY) THEN c.user_id END) AS retained7
+        FROM cohort c
+        LEFT JOIN activity a
+               ON a.user_id = c.user_id
+              AND a.act_date &gt; c.act_date
+              AND a.act_date &lt;= DATE_ADD(c.act_date, INTERVAL 7 DAY)
+        GROUP BY c.act_date
+        ORDER BY c.act_date
+    </select>
+
+    <!-- 累计总览指标 -->
+    <select id="selectOverviewTotals" resultType="com.campus.analysis.dto.OverviewTotalsRow">
+        SELECT
+            (SELECT IFNULL(SUM(amount), 0) FROM biz_order WHERE status = 2)                   AS total_gmv,
+            (SELECT COUNT(*) FROM biz_order)                                                  AS total_order_count,
+            (SELECT COUNT(*) FROM biz_order WHERE status = 2)                                 AS total_finish_order_count,
+            (SELECT COUNT(*) FROM sys_user WHERE user_type = '01' AND del_flag = '0')         AS total_user_count,
+            (SELECT COUNT(*) FROM biz_item WHERE del_flag = '0')                              AS total_item_count,
+            (SELECT COUNT(*) FROM biz_item WHERE del_flag = '0' AND status = 2)               AS on_sale_item_count,
+            (SELECT COUNT(*) FROM biz_item WHERE del_flag = '0' AND status = 1)               AS pending_audit_item_count,
+            (SELECT COUNT(*) FROM biz_favorite)                                               AS total_favorite_count,
+            (SELECT IFNULL(SUM(view_count), 0) FROM biz_item WHERE del_flag = '0')            AS total_view_count,
+            (SELECT COUNT(*) FROM ai_call_log)                                                AS total_ai_call_count
+    </select>
+
+    <!-- 热门商品榜 -->
+    <select id="selectHotItemRank" resultType="com.campus.analysis.dto.HotItemRow">
+        SELECT
+            i.item_id AS item_id,
+            i.title AS title,
+            i.price AS price,
+            p.category_name AS category_name,
+            i.status AS status,
+            i.view_count AS view_count,
+            i.favorite_count AS favorite_count,
+            IFNULL(o.order_count, 0) AS order_count,
+            IFNULL(o.gmv, 0) AS gmv
+        FROM biz_item i
+        LEFT JOIN biz_category c ON c.category_id = i.category_id
+        LEFT JOIN biz_category p ON p.category_id = IF(c.parent_id = 0, c.category_id, c.parent_id)
+        LEFT JOIN (
+            SELECT item_id, COUNT(*) AS order_count, IFNULL(SUM(amount), 0) AS gmv
+            FROM biz_order WHERE status = 2 GROUP BY item_id
+        ) o ON o.item_id = i.item_id
+        WHERE i.del_flag = '0'
+        ORDER BY (i.view_count + i.favorite_count * 3) DESC, gmv DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 卖家榜：成交额 / 成交单数 / 好评率 -->
+    <select id="selectSellerRank" resultType="com.campus.analysis.dto.SellerRankRow">
+        SELECT
+            o.seller_id AS seller_id,
+            u.nickname AS nickname,
+            d.dept_name AS dept_name,
+            IFNULL(SUM(o.amount), 0) AS amount,
+            COUNT(*) AS order_count,
+            IFNULL(cm.cnt, 0) AS comment_count,
+            IFNULL(cm.good, 0) AS good_count
+        FROM biz_order o
+        JOIN sys_user u ON u.user_id = o.seller_id
+        LEFT JOIN sys_dept d ON d.dept_id = u.dept_id
+        LEFT JOIN (
+            SELECT to_user_id, COUNT(*) AS cnt, SUM(CASE WHEN score &gt;= 4 THEN 1 ELSE 0 END) AS good
+            FROM biz_comment WHERE status = '0' GROUP BY to_user_id
+        ) cm ON cm.to_user_id = o.seller_id
+        WHERE o.status = 2
+        GROUP BY o.seller_id, u.nickname, d.dept_name
+        ORDER BY amount DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- AI 使用情况：按场景统计 -->
+    <select id="selectAiUsage" resultType="com.campus.analysis.dto.AiSceneRow">
+        SELECT
+            scene AS scene,
+            COUNT(*) AS call_count,
+            SUM(CASE WHEN status = '0' THEN 1 ELSE 0 END) AS success_count,
+            SUM(CASE WHEN status = '2' THEN 1 ELSE 0 END) AS fallback_count,
+            SUM(CASE WHEN status = '1' THEN 1 ELSE 0 END) AS fail_count,
+            IFNULL(AVG(cost_ms), 0) AS avg_cost_ms,
+            IFNULL(SUM(total_tokens), 0) AS total_tokens
+        FROM ai_call_log
+        WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY scene
+        ORDER BY call_count DESC
+    </select>
+
+    <!-- 区间计数汇总（用于判断预聚合是否过期） -->
+    <select id="selectRangeTotals" resultType="java.util.Map">
+        SELECT
+            (SELECT COUNT(*) FROM biz_order
+             WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS order_count,
+            (SELECT COUNT(*) FROM biz_order
+             WHERE status = 2 AND COALESCE(finish_time, create_time) &gt;= #{startDate}
+               AND COALESCE(finish_time, create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS finish_count,
+            (SELECT IFNULL(SUM(amount), 0) FROM biz_order
+             WHERE status = 2 AND COALESCE(finish_time, create_time) &gt;= #{startDate}
+               AND COALESCE(finish_time, create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS order_gmv,
+            (SELECT COUNT(*) FROM biz_order
+             WHERE pay_time IS NOT NULL AND pay_time &gt;= #{startDate}
+               AND pay_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS pay_count,
+            (SELECT COUNT(*) FROM biz_favorite
+             WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS favorite_count,
+            (SELECT IFNULL(SUM(view_count), 0) FROM biz_item
+             WHERE del_flag = '0' AND create_time &gt;= #{startDate}
+               AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS view_count,
+            (SELECT COUNT(*) FROM ai_call_log
+             WHERE create_time &gt;= #{startDate} AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS ai_call_count,
+            (SELECT COUNT(*) FROM sys_user
+             WHERE user_type = '01' AND del_flag = '0' AND create_time &gt;= #{startDate}
+               AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS new_user_count,
+            (SELECT COUNT(*) FROM biz_item
+             WHERE del_flag = '0' AND create_time &gt;= #{startDate}
+               AND create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)) AS item_publish_count
+    </select>
+
+    <!-- 按天 + 一级分类成交数据（回填 stat_category_daily） -->
+    <select id="selectCategoryOrderDaily" resultType="com.campus.analysis.dto.CategoryDailyRow">
+        SELECT DATE(COALESCE(o.finish_time, o.create_time)) AS stat_date,
+               p.category_id AS category_id,
+               COUNT(*) AS order_count,
+               IFNULL(SUM(o.amount), 0) AS gmv
+        FROM biz_order o
+        JOIN biz_item i ON i.item_id = o.item_id
+        JOIN biz_category c ON c.category_id = i.category_id
+        JOIN biz_category p ON p.category_id = IF(c.parent_id = 0, c.category_id, c.parent_id)
+        WHERE o.status = 2
+          AND COALESCE(o.finish_time, o.create_time) &gt;= #{startDate}
+          AND COALESCE(o.finish_time, o.create_time) &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY DATE(COALESCE(o.finish_time, o.create_time)), p.category_id
+        ORDER BY stat_date, p.category_id
+    </select>
+
+    <!-- 按天 + 一级分类商品发布数 -->
+    <select id="selectCategoryItemDaily" resultType="com.campus.analysis.dto.CategoryItemRow">
+        SELECT DATE(i.create_time) AS stat_date,
+               p.category_id AS category_id,
+               COUNT(*) AS item_count
+        FROM biz_item i
+        JOIN biz_category c ON c.category_id = i.category_id
+        JOIN biz_category p ON p.category_id = IF(c.parent_id = 0, c.category_id, c.parent_id)
+        WHERE i.del_flag = '0'
+          AND i.create_time &gt;= #{startDate} AND i.create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        GROUP BY DATE(i.create_time), p.category_id
+        ORDER BY stat_date, p.category_id
+    </select>
+
+    <!-- 最新成交动态 -->
+    <select id="selectRecentFinishedOrders" resultType="com.campus.analysis.dto.RecentOrderRow">
+        SELECT
+            o.order_no AS order_no,
+            i.title AS item_title,
+            o.amount AS amount,
+            bu.nickname AS buyer_nickname,
+            su.nickname AS seller_nickname,
+            COALESCE(o.finish_time, o.update_time) AS finish_time
+        FROM biz_order o
+        LEFT JOIN biz_item i ON i.item_id = o.item_id
+        LEFT JOIN sys_user bu ON bu.user_id = o.buyer_id
+        LEFT JOIN sys_user su ON su.user_id = o.seller_id
+        WHERE o.status = 2
+        ORDER BY COALESCE(o.finish_time, o.update_time) DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 订单导出 -->
+    <select id="selectOrderExportRows" resultType="com.campus.analysis.dto.OrderExportRow">
+        SELECT
+            o.order_no AS order_no,
+            i.title AS item_title,
+            bu.nickname AS buyer_name,
+            su.nickname AS seller_name,
+            o.amount AS amount,
+            o.status AS status,
+            o.create_time AS create_time,
+            o.finish_time AS finish_time,
+            o.trade_place AS trade_place
+        FROM biz_order o
+        LEFT JOIN biz_item i ON i.item_id = o.item_id
+        LEFT JOIN sys_user bu ON bu.user_id = o.buyer_id
+        LEFT JOIN sys_user su ON su.user_id = o.seller_id
+        WHERE o.create_time &gt;= #{startDate} AND o.create_time &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+        ORDER BY o.create_time DESC
+    </select>
+
+    <!-- ============================ 二、预聚合读取 ============================ -->
+
+    <select id="selectStatOverviewRows" resultType="com.campus.analysis.dto.DailyStatRow">
+        SELECT stat_date, gmv, order_count, finish_order_count, cancel_order_count,
+               item_publish_count, item_sold_count, new_user_count, active_user_count,
+               view_count, favorite_count, ai_call_count
+        FROM stat_overview_daily
+        WHERE stat_date &gt;= #{startDate} AND stat_date &lt;= #{endDate}
+        ORDER BY stat_date
+    </select>
+
+    <select id="selectStatFunnelRows" resultType="com.campus.analysis.dto.FunnelRow">
+        SELECT stat_date, view_count, favorite_count, order_count, pay_count, finish_count
+        FROM stat_funnel_daily
+        WHERE stat_date &gt;= #{startDate} AND stat_date &lt;= #{endDate}
+        ORDER BY stat_date
+    </select>
+
+    <select id="selectStatCategoryAgg" resultType="com.campus.analysis.dto.CategoryAggRow">
+        SELECT
+            s.category_id AS category_id,
+            MAX(c.category_name) AS category_name,
+            IFNULL(SUM(s.order_count), 0) AS order_count,
+            IFNULL(SUM(s.gmv), 0) AS gmv
+        FROM stat_category_daily s
+        LEFT JOIN biz_category c ON c.category_id = s.category_id
+        WHERE s.stat_date &gt;= #{startDate} AND s.stat_date &lt;= #{endDate}
+        GROUP BY s.category_id
+        ORDER BY gmv DESC
+    </select>
+
+    <select id="countStatCategoryDays" resultType="int">
+        SELECT COUNT(DISTINCT stat_date) FROM stat_category_daily
+        WHERE stat_date &gt;= #{startDate} AND stat_date &lt;= #{endDate}
+    </select>
+
+    <!-- ============================ 三、预聚合写入 ============================ -->
+
+    <delete id="deleteOverviewDaily">
+        DELETE FROM stat_overview_daily
+        WHERE stat_date &gt;= #{startDate} AND stat_date &lt;= #{endDate}
+    </delete>
+
+    <insert id="insertOverviewDailyBatch">
+        INSERT INTO stat_overview_daily
+            (stat_date, gmv, order_count, finish_order_count, cancel_order_count, item_publish_count,
+             item_sold_count, new_user_count, active_user_count, view_count, favorite_count, ai_call_count, update_time)
+        VALUES
+        <foreach collection="list" item="it" separator=",">
+            (#{it.statDate}, #{it.gmv}, #{it.orderCount}, #{it.finishOrderCount}, #{it.cancelOrderCount},
+             #{it.itemPublishCount}, #{it.itemSoldCount}, #{it.newUserCount}, #{it.activeUserCount},
+             #{it.viewCount}, #{it.favoriteCount}, #{it.aiCallCount}, NOW())
+        </foreach>
+    </insert>
+
+    <delete id="deleteFunnelDaily">
+        DELETE FROM stat_funnel_daily
+        WHERE stat_date &gt;= #{startDate} AND stat_date &lt;= #{endDate}
+    </delete>
+
+    <insert id="insertFunnelDailyBatch">
+        INSERT INTO stat_funnel_daily
+            (stat_date, view_count, favorite_count, order_count, pay_count, finish_count)
+        VALUES
+        <foreach collection="list" item="it" separator=",">
+            (#{it.statDate}, #{it.viewCount}, #{it.favoriteCount}, #{it.orderCount}, #{it.payCount}, #{it.finishCount})
+        </foreach>
+    </insert>
+
+    <delete id="deleteCategoryDaily">
+        DELETE FROM stat_category_daily
+        WHERE stat_date &gt;= #{startDate} AND stat_date &lt;= #{endDate}
+    </delete>
+
+    <insert id="insertCategoryDailyBatch">
+        INSERT INTO stat_category_daily
+            (stat_date, category_id, item_count, order_count, gmv)
+        VALUES
+        <foreach collection="list" item="it" separator=",">
+            (#{it.statDate}, #{it.categoryId}, #{it.itemCount}, #{it.orderCount}, #{it.gmv})
+        </foreach>
+    </insert>
+
+    <!-- ============================ 四、RFM ============================ -->
+
+    <!-- 有成交用户的 RFM + NTILE 分位数得分（1-5 分，分数越高越好：R 反向） -->
+    <select id="selectRfmScoredUsers" resultType="com.campus.analysis.dto.RfmScoredRow">
+        WITH rfm AS (
+            SELECT u.user_id AS user_id,
+                   u.nickname AS nickname,
+                   d.dept_name AS dept_name,
+                   IFNULL(DATEDIFF(CURDATE(), MAX(DATE(COALESCE(o.finish_time, o.create_time)))), 999) AS recency_days,
+                   COUNT(o.order_id) AS frequency,
+                   IFNULL(SUM(o.amount), 0) AS monetary
+            FROM sys_user u
+            LEFT JOIN biz_order o ON o.buyer_id = u.user_id AND o.status = 2
+            LEFT JOIN sys_dept d ON d.dept_id = u.dept_id
+            WHERE u.user_type = '01' AND u.del_flag = '0'
+            GROUP BY u.user_id, u.nickname, d.dept_name
+        )
+        SELECT
+            r.user_id, r.nickname, r.dept_name, r.recency_days, r.frequency, r.monetary,
+            CAST(6 - NTILE(5) OVER (ORDER BY r.recency_days ASC) AS SIGNED) AS r_score,
+            CAST(NTILE(5) OVER (ORDER BY r.frequency ASC) AS SIGNED) AS f_score,
+            CAST(NTILE(5) OVER (ORDER BY r.monetary ASC) AS SIGNED) AS m_score
+        FROM rfm r
+        WHERE r.frequency &gt; 0
+        ORDER BY r.monetary DESC, r.frequency DESC, r.user_id ASC
+    </select>
+
+    <!-- 无成交用户基线（保证返回 1 行） -->
+    <select id="selectRfmBaseline" resultType="com.campus.analysis.dto.RfmScoredRow">
+        SELECT NULL AS user_id, NULL AS nickname, NULL AS dept_name,
+               999 AS recency_days, 0 AS frequency, 0 AS monetary,
+               1 AS r_score, 1 AS f_score, 1 AS m_score
+    </select>
+
+    <!-- 无成交学生用户（标记为「流失」） -->
+    <select id="selectRfmChurnUsers" resultType="com.campus.analysis.dto.RfmScoredRow">
+        SELECT u.user_id AS user_id, u.nickname AS nickname, d.dept_name AS dept_name,
+               999 AS recency_days, 0 AS frequency, 0 AS monetary
+        FROM sys_user u
+        LEFT JOIN sys_dept d ON d.dept_id = u.dept_id
+        WHERE u.user_type = '01' AND u.del_flag = '0'
+          AND NOT EXISTS (SELECT 1 FROM biz_order o WHERE o.buyer_id = u.user_id AND o.status = 2)
+        ORDER BY u.user_id
+    </select>
+
+    <delete id="deleteUserRfm">
+        DELETE FROM stat_user_rfm WHERE calc_date = #{calcDate}
+    </delete>
+
+    <delete id="deleteUserRfmBefore">
+        DELETE FROM stat_user_rfm WHERE calc_date &lt; #{calcDate}
+    </delete>
+
+    <insert id="insertUserRfmBatch">
+        INSERT INTO stat_user_rfm
+            (user_id, recency_days, frequency, monetary, r_score, f_score, m_score, segment, calc_date)
+        VALUES
+        <foreach collection="list" item="it" separator=",">
+            (#{it.userId}, #{it.recencyDays}, #{it.frequency}, #{it.monetary},
+             #{it.rScore}, #{it.fScore}, #{it.mScore}, #{it.segment}, #{it.calcDate})
+        </foreach>
+    </insert>
+
+    <select id="selectRfmRows" resultType="com.campus.analysis.dto.RfmUserRow">
+        SELECT r.user_id, u.nickname, d.dept_name, r.recency_days, r.frequency, r.monetary,
+               r.r_score, r.f_score, r.m_score, r.segment, r.calc_date
+        FROM stat_user_rfm r
+        LEFT JOIN sys_user u ON u.user_id = r.user_id
+        LEFT JOIN sys_dept d ON d.dept_id = u.dept_id
+        WHERE r.calc_date = #{calcDate}
+        <if test="segment != null and segment != ''">
+            AND r.segment = #{segment}
+        </if>
+        ORDER BY r.monetary DESC, r.frequency DESC, r.user_id ASC
+        LIMIT #{offset}, #{limit}
+    </select>
+
+    <select id="countRfmRows" resultType="long">
+        SELECT COUNT(*) FROM stat_user_rfm
+        WHERE calc_date = #{calcDate}
+        <if test="segment != null and segment != ''">
+            AND segment = #{segment}
+        </if>
+    </select>
+
+    <sql id="rfmSegmentAgg">
+        SELECT segment AS segment,
+               COUNT(*) AS user_count,
+               IFNULL(SUM(monetary), 0) AS monetary
+        FROM stat_user_rfm
+        WHERE calc_date = #{calcDate}
+        GROUP BY segment
+        ORDER BY user_count DESC
+    </sql>
+
+    <select id="selectRfmSegments" resultType="com.campus.analysis.dto.RfmSegmentRow">
+        <include refid="rfmSegmentAgg"/>
+    </select>
+
+    <select id="selectRfmSegmentRows" resultType="com.campus.analysis.dto.RfmSegmentRow">
+        <include refid="rfmSegmentAgg"/>
+    </select>
+
+    <select id="selectRfmSignature" resultType="com.campus.analysis.dto.RfmSignatureRow">
+        SELECT COUNT(*) AS user_count, IFNULL(SUM(monetary), 0) AS monetary
+        FROM stat_user_rfm
+        WHERE calc_date = #{calcDate}
+    </select>
+
+</mapper>

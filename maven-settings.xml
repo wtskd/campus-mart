@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  可选的 Maven 配置：使用阿里云公共仓库镜像，国内拉依赖快很多。
+  用法：mvn -s maven-settings.xml -DskipTests clean package
+  不指定 localRepository，走默认的 ~/.m2/repository。
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun</id>
+      <name>Aliyun Public</name>
+      <mirrorOf>central</mirrorOf>
+      <url>https://maven.aliyun.com/repository/public</url>
+    </mirror>
+  </mirrors>
+</settings>

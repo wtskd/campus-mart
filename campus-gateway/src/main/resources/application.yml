@@ -1,0 +1,90 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: campus-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+          lower-case-service-id: true
+      routes:
+        - id: campus-auth
+          uri: lb://campus-auth
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+        - id: campus-system
+          uri: lb://campus-system
+          predicates:
+            - Path=/api/system/**
+          filters:
+            - StripPrefix=1
+        - id: campus-item
+          uri: lb://campus-item
+          predicates:
+            - Path=/api/item/**
+          filters:
+            - StripPrefix=1
+        - id: campus-analysis
+          uri: lb://campus-analysis
+          predicates:
+            - Path=/api/analysis/**
+          filters:
+            - StripPrefix=1
+        - id: campus-ai
+          uri: lb://campus-ai
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - StripPrefix=1
+        # 上传文件的静态资源直通（不带 /api 前缀，不剥前缀）
+        - id: campus-upload
+          uri: lb://campus-item
+          predicates:
+            - Path=/upload/**
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            exposedHeaders: "Authorization"
+            allowCredentials: true
+            maxAge: 3600
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      httpclient:
+        connect-timeout: 3000
+        response-timeout: 30s
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: 0
+      timeout: 5000ms
+
+campus:
+  jwt:
+    secret: ${JWT_SECRET:CampusMart@2026#JwtSecretKeyForDemoOnly!}
+
+logging:
+  level:
+    com.campus: info
+    org.springframework.cloud.gateway: info
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway

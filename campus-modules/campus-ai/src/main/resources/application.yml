@@ -1,0 +1,78 @@
+server:
+  port: 9204
+
+spring:
+  application:
+    name: campus-ai
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:public}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/campus_mart?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:123456}
+    hikari:
+      minimum-idle: 3
+      maximum-pool-size: 10
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: 0
+  jackson:
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.campus.ai.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+campus:
+  jwt:
+    secret: ${JWT_SECRET:CampusMart@2026#JwtSecretKeyForDemoOnly!}
+  ai:
+    # remote=调用远程大模型API  local=调用本地 Ollama  mock=纯本地模板兜底（无网络也能演示）
+    provider: ${AI_PROVIDER:remote}
+    # 全局兜底超时（秒）
+    timeout: 15
+    # HTTP 超时：连接 3s / 读取 30s
+    connect-timeout: 3000
+    read-timeout: 30000
+    # 远程 OpenAI 兼容端点（DeepSeek）
+    remote:
+      base-url: ${AI_BASE_URL:${AI_REMOTE_URL:https://api.deepseek.com/v1}}
+      api-key: ${AI_API_KEY:${AI_REMOTE_KEY:}}
+      model: ${AI_MODEL:${AI_REMOTE_MODEL:deepseek-chat}}
+      timeout: 30
+    # 本地 Ollama 端点
+    local:
+      base-url: ${OLLAMA_BASE_URL:${AI_LOCAL_URL:http://127.0.0.1:11434/v1}}
+      model: ${OLLAMA_MODEL:${AI_LOCAL_MODEL:qwen2.5:7b-instruct}}
+      timeout: 60
+    # 审核场景是否在规则通过后再调模型复核（无 key 时自动跳过）
+    moderation:
+      llm-enabled: ${AI_MODERATION_LLM:true}
+
+spring.cloud.openfeign.client.config.default:
+  connect-timeout: 3000
+  read-timeout: 15000
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+
+logging:
+  level:
+    com.campus: info

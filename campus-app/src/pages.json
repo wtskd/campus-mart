@@ -1,0 +1,150 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "校园易站",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 100,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/category/category",
+      "style": {
+        "navigationBarTitleText": "分类",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/item/publish",
+      "style": {
+        "navigationBarTitleText": "发布闲置"
+      }
+    },
+    {
+      "path": "pages/message/message",
+      "style": {
+        "navigationBarTitleText": "消息",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 100,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/user/user",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "enablePullDownRefresh": false
+      }
+    },
+    {
+      "path": "pages/search/search",
+      "style": {
+        "navigationBarTitleText": "搜索",
+        "enablePullDownRefresh": false,
+        "onReachBottomDistance": 100
+      }
+    },
+    {
+      "path": "pages/item/detail",
+      "style": {
+        "navigationBarTitleText": "商品详情",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 100,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/item/my",
+      "style": {
+        "navigationBarTitleText": "我的发布",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 100
+      }
+    },
+    {
+      "path": "pages/order/confirm",
+      "style": {
+        "navigationBarTitleText": "确认订单"
+      }
+    },
+    {
+      "path": "pages/order/list",
+      "style": {
+        "navigationBarTitleText": "我的订单",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 100
+      }
+    },
+    {
+      "path": "pages/order/detail",
+      "style": {
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/favorite/favorite",
+      "style": {
+        "navigationBarTitleText": "我的收藏",
+        "enablePullDownRefresh": true,
+        "onReachBottomDistance": 100
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录 / 注册",
+        "navigationBarBackgroundColor": "#ffffff"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "校园易站",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f6f8",
+    "maxWidth": 480,
+    "backgroundColorTop": "#f5f6f8",
+    "backgroundColorBottom": "#f5f6f8"
+  },
+  "tabBar": {
+    "color": "#9aa1ab",
+    "selectedColor": "#2b7fff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/tabbar/home.png",
+        "selectedIconPath": "static/tabbar/home-active.png"
+      },
+      {
+        "pagePath": "pages/category/category",
+        "text": "分类",
+        "iconPath": "static/tabbar/category.png",
+        "selectedIconPath": "static/tabbar/category-active.png"
+      },
+      {
+        "pagePath": "pages/item/publish",
+        "text": "发布",
+        "iconPath": "static/tabbar/publish.png",
+        "selectedIconPath": "static/tabbar/publish-active.png"
+      },
+      {
+        "pagePath": "pages/message/message",
+        "text": "消息",
+        "iconPath": "static/tabbar/message.png",
+        "selectedIconPath": "static/tabbar/message-active.png"
+      },
+      {
+        "pagePath": "pages/user/user",
+        "text": "我的",
+        "iconPath": "static/tabbar/user.png",
+        "selectedIconPath": "static/tabbar/user-active.png"
+      }
+    ]
+  }
+}

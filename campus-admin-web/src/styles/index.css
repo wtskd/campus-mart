@@ -1,0 +1,107 @@
+/* ============================================================
+ * 全局样式
+ * ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: #303133;
+  background: #f0f2f5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: #409eff;
+  text-decoration: none;
+}
+
+/* 通用页面容器 */
+.page-container {
+  padding: 16px;
+}
+
+.page-card {
+  margin-bottom: 14px;
+  background: #fff;
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.06);
+}
+
+/* 查询表单区 */
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px 16px 4px;
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 0;
+}
+
+.table-toolbar .title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #303133;
+}
+
+/* 表格里的小缩略图 */
+.cell-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: #f5f7fa;
+}
+
+/* 文本省略 */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 金额 */
+.amount {
+  color: #f56c6c;
+  font-weight: 600;
+}
+
+/* 大屏页面：脱离后台布局，全屏铺满 */
+.screen-wrapper {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  overflow: auto;
+  background: #050b1c;
+}
+
+/* 滚动条美化（仅 Webkit） */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(144, 147, 153, 0.4);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}

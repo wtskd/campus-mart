@@ -1,0 +1,37 @@
+/**
+ * uni.scss —— 全局 SCSS 变量（uni-app 会自动注入到每个组件的 scss 中）
+ * 校园清新风：主色 #2b7fff（科技蓝），辅色 #07c160（微信绿）
+ */
+
+/* 主色 */
+$cm-primary: #2b7fff;
+$cm-primary-dark: #1b66db;
+$cm-primary-light: #e8f1ff;
+
+/* 语义色 */
+$cm-success: #07c160;
+$cm-warning: #ff9f0a;
+$cm-danger: #ee0a24;
+$cm-orange: #ff7d00;
+
+/* 文字 */
+$cm-text: #1f2229;
+$cm-text-2: #646a73;
+$cm-text-3: #9aa1ab;
+$cm-text-4: #c2c7cf;
+
+/* 背景与边框 */
+$cm-page-bg: #f5f6f8;
+$cm-card-bg: #ffffff;
+$cm-border: #eef0f3;
+
+/* 圆角与阴影 */
+$cm-radius-sm: 12rpx;
+$cm-radius: 20rpx;
+$cm-radius-lg: 28rpx;
+$cm-shadow: 0 4rpx 16rpx rgba(31, 34, 41, 0.06);
+$cm-shadow-up: 0 -4rpx 20rpx rgba(31, 34, 41, 0.06);
+
+/* 间距 */
+$cm-gap: 24rpx;
+$cm-page-padding: 24rpx;
