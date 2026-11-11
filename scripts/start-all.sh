@@ -36,7 +36,7 @@ case ":$PATH:" in *":/d/project/jdk17/bin:"*) ;; *) PATH="/d/project/jdk17/bin:$
 case ":$PATH:" in *":/d/project/maven/bin:"*) ;; *) PATH="/d/project/maven/bin:$PATH" ;; esac
 export PATH
 
-mkdir -p "$LOGS" "$UPLOAD"
+mkdir -p "$LOGS" "$LOGS/redis-data" "$UPLOAD"
 
 # ---------- 小工具 ----------
 port_up() {  # $1=端口
@@ -91,7 +91,7 @@ if port_up 6379; then
   echo "  [SKIP] Redis 已在 :6379"
 else
   echo "  [START] Redis ..."
-  nohup "$REDIS_EXE" "$REDIS_CONF" > "$LOGS/redis.out.log" 2>&1 &
+  ( cd "$CM" && nohup "$REDIS_EXE" "$REDIS_CONF" > "$LOGS/redis.out.log" 2>&1 & )
   sleep 1
 fi
 
@@ -112,7 +112,7 @@ else
   )
 fi
 
-wait_port 6379 redis 30  || exit 1
+wait_port 6379 redis 30  || { echo "  Redis 启动失败，日志：" ; tail -n 3 "$LOGS/redis.out.log" ; exit 1; }
 wait_port 8848 nacos 120 || { echo "  Nacos 起不来，看 logs/nacos.out.log"; exit 1; }
 
 # ---------- 2. AI 配置 ----------
