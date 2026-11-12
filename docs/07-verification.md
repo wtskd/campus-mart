@@ -266,3 +266,19 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 | 54 | 「图标」列一级分类显示破图，二级分类显示 `-` | `biz_category.icon` 存的是**图标名**（`phone / education / shopping / run / star / home / music / more`，供用户端按名字渲染），后台页面却当成图片地址塞进 `<el-image :src>` | 图标列分两种渲染：`http(s)://` 或 `/` 开头才当图片（经 `resolveFileUrl` 拼绝对地址），否则用 `el-tag` 显示图标名；表单标签由「图标 URL」改为「图标」，占位提示「图标名（phone / education）或图片地址」 |
 
 **验证**：`GET /api/item/category/list` → 40 条，一级 8 个的 `icon` 依次为 `phone/education/shopping/run/star/home/music/more`（确认为图标名而非地址）；`npm run build` ✓ 7.8s；dev server（5180）对 `src/views/item/category/index.vue` 返回 200 且无 Transform failed。
+
+### 16.2 评价管理：筛选条件改成「商品 ID / 订单 / 状态」（2026-11-12，用户实测）
+
+用户反馈：「这个筛选条件不合理吧，应该是商品 id 筛选和订单 4119 这个和状态筛选」。原来的搜索区是「评价内容关键字 + 商品 ID + 状态」，而实际排查评价都是按**哪笔订单的哪件商品**去定位，内容关键字基本用不上；状态下拉还错用了 `sys_normal_disable`（正常/停用），与 `biz_comment.status`（0 正常 / 1 已隐藏 / 2 审核未通过）语义对不上。
+
+| # | 改动 | 说明 |
+|---|---|---|
+| 55 | 搜索区改为「商品 ID + 订单 ID + 状态」 | 商品 ID 与订单 ID 都支持回车搜索；订单 ID 占位符直接写「如 4119」，对应列表里「订单 4119」那一栏 |
+| 56 | 状态下拉换成专用字典 `item_comment_status` | `sql/06-dict-fix.sql` 新增第 4 段（0 正常 / 1 已隐藏 / 2 审核未通过），执行后需 `redis-cli DEL dict:item_comment_status`（字典空结果也会缓存 1 小时）；列表状态列同步支持三种状态与对应颜色 |
+| 57 | 后端 `CommentQueryDTO` 增加 `orderId` | 原来只能按 itemId / fromUserId / status / keyword 过滤，没法按订单定位 |
+| 58 | `CommentVO` 增加 `orderNo`，列表展示订单号 | 后台分页时批量 `selectBatchIds` 取订单号（一次查询，不做 N+1），列表「订单 4119（CM202611031719211309）」 |
+| 59 | 评价关系列排版 | 原来「评价人 X / 被评价人 Y ｜ 订单 Z」两行挤在一起，改为「评价人 X → 被评价人 Y」+ 第二行订单 ID 与订单号 |
+
+**验证**：在临时端口 9302 起新编译的 item 服务（不影响正在运行的旧进程）：`/item/comment/page` 全部 77 条 → `orderId=4119` 1 条（`orderNo=CM202611031719211309`）、`itemId=3161` 1 条、`status=1` 0 条、`orderId=999999` 0 条；`GET /api/system/dict/data/type/item_comment_status` → 3 条（正常/已隐藏/审核未通过）；`npm run build` ✓ 7.8s。
+
+**注意**：`orderId` 与 `orderNo` 是后端改动，需要重启 item 服务生效；字典已直接写库并清了缓存，刷新页面就能看到状态下拉。

@@ -2,9 +2,9 @@
   <div class="page-container">
     <el-card shadow="never" class="page-card">
       <div class="search-bar">
-        <el-input v-model="query.keyword" placeholder="评价内容" clearable style="width: 220px" @keyup.enter="handleSearch" />
-        <el-input v-model="query.itemId" placeholder="商品 ID" clearable style="width: 130px" @keyup.enter="handleSearch" />
-        <DictSelect v-model="query.status" dict-type="sys_normal_disable" placeholder="状态" width="140px" />
+        <el-input v-model="query.itemId" placeholder="商品 ID" clearable style="width: 140px" @keyup.enter="handleSearch" />
+        <el-input v-model="query.orderId" placeholder="订单 ID（如 4119）" clearable style="width: 190px" @keyup.enter="handleSearch" />
+        <DictSelect v-model="query.status" dict-type="item_comment_status" placeholder="状态" width="150px" />
         <el-button type="primary" :icon="Search" @click="handleSearch">搜索</el-button>
         <el-button :icon="Refresh" @click="handleReset">重置</el-button>
       </div>
@@ -39,17 +39,17 @@
             <el-rate :model-value="Number(row.score) || 0" disabled />
           </template>
         </el-table-column>
-        <el-table-column label="评价关系" min-width="160">
+        <el-table-column label="评价关系" min-width="200">
           <template #default="{ row }">
-            <div>评价人 {{ row.fromUserId }}</div>
-            <div class="sub-line">被评价人 {{ row.toUserId }} ｜ 订单 {{ row.orderId }}</div>
+            <div>评价人 {{ row.fromUserId }} → 被评价人 {{ row.toUserId }}</div>
+            <div class="sub-line">
+              订单 {{ row.orderId }}<span v-if="row.orderNo">（{{ row.orderNo }}）</span>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90" align="center">
+        <el-table-column label="状态" width="110" align="center">
           <template #default="{ row }">
-            <el-tag :type="String(row.status) === '1' ? 'info' : 'success'" size="small">
-              {{ String(row.status) === '1' ? '已隐藏' : '正常' }}
-            </el-tag>
+            <el-tag :type="statusTagType(row.status)" size="small">{{ statusText(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="评价时间" width="170" />
@@ -83,7 +83,7 @@ import { auditComment, deleteComment, getCommentPage } from '@/api/item'
 const loading = ref(false)
 const list = ref([])
 const total = ref(0)
-const query = reactive({ current: 1, size: 10, keyword: '', itemId: '', status: undefined })
+const query = reactive({ current: 1, size: 10, itemId: '', orderId: '', status: undefined })
 
 async function loadList() {
   loading.value = true
@@ -104,8 +104,20 @@ function handleSearch() {
   loadList()
 }
 
+/** 评价状态：0 正常、1 已隐藏、2 审核未通过（与 biz_comment.status 一致） */
+const STATUS_TEXT = { 0: '正常', 1: '已隐藏', 2: '审核未通过' }
+const STATUS_TAG = { 0: 'success', 1: 'info', 2: 'danger' }
+
+function statusText(status) {
+  return STATUS_TEXT[String(status)] || '未知'
+}
+
+function statusTagType(status) {
+  return STATUS_TAG[String(status)] || 'info'
+}
+
 function handleReset() {
-  Object.assign(query, { current: 1, size: 10, keyword: '', itemId: '', status: undefined })
+  Object.assign(query, { current: 1, size: 10, itemId: '', orderId: '', status: undefined })
   loadList()
 }
 

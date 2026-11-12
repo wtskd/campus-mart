@@ -22,6 +22,9 @@ public class CommentQueryDTO extends PageQuery {
     @Schema(description = "商品ID")
     private Long itemId;
 
+    @Schema(description = "订单ID（评价挂在成交订单上，后台按订单号定位时传这个）")
+    private Long orderId;
+
     @Schema(description = "评价人ID")
     private Long fromUserId;
 

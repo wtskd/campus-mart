@@ -24,6 +24,9 @@ public class CommentVO implements Serializable {
     @Schema(description = "订单ID")
     private Long orderId;
 
+    @Schema(description = "订单号，如 CM202611031719211309（后台列表展示用，App 端不填）")
+    private String orderNo;
+
     @Schema(description = "商品ID")
     private Long itemId;
 

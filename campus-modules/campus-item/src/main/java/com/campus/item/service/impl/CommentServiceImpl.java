@@ -135,6 +135,7 @@ public class CommentServiceImpl implements CommentService {
     public PageResult<CommentVO> pageAdmin(CommentQueryDTO query) {
         LambdaQueryWrapper<BizComment> wrapper = Wrappers.lambdaQuery(BizComment.class)
                 .eq(query.getItemId() != null, BizComment::getItemId, query.getItemId())
+                .eq(query.getOrderId() != null, BizComment::getOrderId, query.getOrderId())
                 .eq(query.getFromUserId() != null, BizComment::getFromUserId, query.getFromUserId())
                 .eq(StringUtils.hasText(query.getStatus()), BizComment::getStatus, query.getStatus())
                 .like(StringUtils.hasText(query.getKeyword()), BizComment::getContent,
@@ -143,7 +144,27 @@ public class CommentServiceImpl implements CommentService {
                 .orderByDesc(BizComment::getCommentId);
         Page<BizComment> page = commentMapper.selectPage(query.toPage(), wrapper);
         Map<Long, UserBriefVO> users = userMap(page.getRecords());
-        return PageResult.of(page, comment -> toVO(comment, users));
+        Map<Long, String> orderNos = orderNoMap(page.getRecords());
+        return PageResult.of(page, comment -> {
+            CommentVO vo = toVO(comment, users);
+            vo.setOrderNo(orderNos.get(comment.getOrderId()));
+            return vo;
+        });
+    }
+
+    /** 批量取订单号，避免列表 N+1（只有后台分页用得到订单号） */
+    private Map<Long, String> orderNoMap(List<BizComment> comments) {
+        Set<Long> orderIds = comments.stream()
+                .map(BizComment::getOrderId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (orderIds.isEmpty()) {
+            return java.util.Collections.emptyMap();
+        }
+        return orderMapper.selectBatchIds(orderIds).stream()
+                .filter(order -> order.getOrderNo() != null)
+                .collect(java.util.stream.Collectors.toMap(
+                        BizOrder::getOrderId, BizOrder::getOrderNo, (left, right) -> left));
     }
 
     @Override
