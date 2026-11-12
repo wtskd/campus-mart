@@ -202,3 +202,26 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 **验证**：`GET /api/item/app/banner/list` 返回三条新链接（`/pages/category/category`、`/pages/item/publish`、`search:教材`）；`npm run build:h5` 与 admin `npm run build` 均通过；dev server 编译产物 `pages/index/index.vue` 含 `TAB_PAGES`/`goPage`，admin `banner/index.vue` 含 `linkType`/`buildLink`/`item:banner:add`。
 
 **演示效果**：首页点第 1 张 → 分类页；第 2 张 → 发布页；第 3 张 → 搜索页并自动搜「教材」。
+
+## 15. 文件管理页：上传成功但点链接 404、刷新后列表清空（2026-11-12）
+
+用户反馈：「我在系统管理的文件管理上传 pdf，然后刷新就 404，然后就没有上传的文件了」。
+
+| # | 现象 | 根因 | 修复 |
+|---|---|---|---|
+| 42 | 上传成功的 pdf，点「地址」链接打开是前端 404 页面（`页面不存在，可能已被删除或没有访问权限`） | `sys_file.file_url` 存的是相对路径 `/upload/2026/11/12/xxx.pdf`，这是给网关/nginx 用的前缀；把相对地址直接放进 `<a href>` 后，浏览器请求的是**前端 dev server（5180）**，Vite 找不到文件就回退到 `index.html` → 渲染 404 页 | 新增 `campus-admin-web/src/utils/file.js`：`resolveFileUrl(url)` 把相对路径拼成后端绝对地址（开发态默认 `http://<host>:8081`，可用 `VITE_FILE_BASE` 覆盖；生产态留空走 nginx 同域代理）。页面上所有 `href`、复制链接、图片预览都过这个函数 |
+| 43 | 刷新页面后上传记录全部消失，只剩空表 | 页面把上传结果只存在组件内的 `fileList` ref（原注释写着「契约未提供文件列表分页接口，此处仅展示当前会话内上传结果」），但后端其实早就有 `GET /system/file/list` 分页接口与 `DELETE /system/file/{ids}` | 重写 `views/system/file/index.vue`：改用 `useTable(getFilePage)` 拉真实分页（文件名 + 类型筛选、分页器、刷新）；上传成功后回到第一页重新查询；新增「删除」（`ElMessageBox` 二次确认，磁盘文件一并删除）；图片类型显示 40×40 缩略图并可点击放大；`createBy` 经 `GET /system/user/list` 翻译成昵称 |
+
+**排查过程里的两个细节**：
+
+1. 后端其实把文件存下来了：`sys_file` 有 6 条记录（file_id 1–6，均 `bizType=common`、`storage=local`），磁盘 `campus-mart/upload/2026/11/12/*.pdf` 也在；`GET http://127.0.0.1:8081/upload/2026/11/12/e9a….pdf` 返回 `200 application/pdf 237298`。所以「文件丢了」是错觉，丢的只是**前端表格**。
+2. 静态资源缺失时后端返回的是 **HTTP 200 + JSON** `{"code":404,"msg":"资源不存在：xxx.png"}`（`campus-common` 的 `GlobalExceptionHandler.handleNoResource` 把 `NoResourceFoundException` 统一包成 Result）。浏览器会「看起来加载成功」，排查时容易被误导；功能上不影响本页（链接现在都指向真实存在的文件），保留现状以免影响其他接口的错误码语义。
+
+**验证**（`node` 直接打网关 8081）：
+
+- `GET /api/system/file/list?current=1&size=5` → 200，total=6，首条含 `originalName=江锦隆安全责任承诺书.pdf`、`fileUrl=/upload/2026/11/12/e9a….pdf`、`fileSize="237298"`、`createBy="1"`、`createTime=2026-11-12 09:36:09`
+- `GET http://127.0.0.1:8081/upload/2026/11/12/e9a….pdf` → 200 `application/pdf`，237298 字节
+- 上传 → 静态访问 → 删除 → 再访问：`POST /api/system/file/upload` 200 → 静态 200 → `DELETE /api/system/file/7` 200「删除成功」→ 磁盘文件消失
+- 前端：`npm run build` ✓ 7.4s；dev server（5180）对 `/src/views/system/file/index.vue`、`/src/utils/file.js` 均返回 200 且无 Transform failed
+
+**注意**：`fileId` / `createBy` 是 Long，后端序列化成字符串（`"6"`），所以前端 `uploaderName()` 与用户昵称映射表统一按 `String(id)` 取键。

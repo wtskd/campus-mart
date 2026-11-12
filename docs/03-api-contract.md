@@ -181,7 +181,10 @@
 
 ### 3.8 文件 `/system/file`
 `POST /upload`（multipart，字段名 `file`；白名单 jpg/jpeg/png/gif/webp/pdf/zip，≤10MB）→ `data: { "fileName":"uuid.png", "url":"/upload/2026/10/27/uuid.png", "size":12345 }`
-`GET /list`（分页）、`DELETE /{fileIds}`
+`GET /list`（分页，查询参数 `originalName` / `fileType` / `bizType`；返回 `sys_file` 行：`fileId`、`fileName`（存储名 uuid）、`originalName`（原始文件名）、`fileUrl`（相对路径 `/upload/yyyy/MM/dd/xxx.ext`）、`fileSize`、`fileType`、`storage`、`bizType`、`createBy`、`createTime`；Long 字段统一序列化为字符串）
+`DELETE /{fileIds}`（逗号分隔批量删除，磁盘文件一并删除；权限 `system:file:remove`，回退 `system:file:list`）
+
+> `fileUrl` 是**相对路径**，给网关/nginx 用。前端展示、复制、`<a href>`、图片 `src` 必须先拼成后端绝对地址（`campus-admin-web/src/utils/file.js` 的 `resolveFileUrl()`，开发态默认 `http://<host>:8081`），否则请求会落到前端 dev server 的 SPA 回退，表现为「打开是 404 页面」。
 > 图片访问：网关把 `/upload/**` 转发到 item 服务静态映射；演示图片在 `campus-mart/upload/demo/`，URL 形如 `/upload/demo/item-01.png`。
 
 ---

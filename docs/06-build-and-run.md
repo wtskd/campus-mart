@@ -143,6 +143,7 @@ npm run dev:h5  # http://localhost:5181
 | `AI_PROVIDER` | `remote` | `remote` / `local` / `mock` |
 | `AI_BASE_URL` / `AI_API_KEY` / `AI_MODEL` | - | 远程大模型（OpenAI 兼容） |
 | `OLLAMA_BASE_URL` | `http://127.0.0.1:11434/v1` | 本地模型端点 |
+| `VITE_FILE_BASE` | dev `http://localhost:8081`、prod 空 | 前端展示上传文件时的地址前缀（`/upload/**` 由网关转发），不配则退回 dev 态默认 `http://<host>:8081` |
 
 ## 10. 一键脚本与验收
 
@@ -150,8 +151,10 @@ npm run dev:h5  # http://localhost:5181
 
 | 脚本 | 用途 |
 |---|---|
-| `scripts/start-all.ps1` | 检查 MySQL/Redis/Nacos → 按序拉起 6 个 jar → 等待端口 → 打印访问地址。**会读取 `ai-key.env`（仓库外，可选）（若存在）注入 AI 配置** |
-| `scripts/stop-all.ps1` | 按端口停掉 6 个 Java 进程 |
+| `scripts/start-all.sh` | **主路径**：检查 MySQL/Redis/Nacos → 按序拉起 6 个 jar → 等待端口 → 打印访问地址；会读取仓库外的 `ai-key.env`（可选）注入 AI 配置；源码比 jar 新或 jar 过小会自动 `mvn package` |
+| `scripts/stop-all.sh` | 按端口停掉 6 个 Java 进程（`--with-infra` 连 Redis / Nacos 一起停） |
+| `scripts/init-db.sh` | 建库并依次导入 `sql/01`～`07` 脚本（可重复执行） |
+| `scripts/start-all.ps1` / `stop-all.ps1` | PowerShell 备用版本（Windows 原生，逻辑同上） |
 | `scripts/pack-deliverables.ps1` | 打「结课成果物」zip 到 `<workspace>/deliverables/`（自动剔除 node_modules/target/dist/logs） |
 
 验收（答辩前自查，三层）：
