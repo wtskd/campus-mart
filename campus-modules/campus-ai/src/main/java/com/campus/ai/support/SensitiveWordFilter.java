@@ -40,6 +40,14 @@ public class SensitiveWordFilter {
 
     private static final Pattern STRIP = Pattern.compile("[\\s\\u3000·•.\\-_*|/\\\\]+");
 
+    /**
+     * 辱骂缩写（拼音首字母 / 英文脏话）
+     *
+     * <p>必须作为独立词出现：两侧不能是字母或数字，否则 "usb"、"5sb" 里的 sb 会被误伤。</p>
+     */
+    private static final Pattern ABUSE_ABBR = Pattern.compile(
+            "(?i)(?<![a-z0-9])(sb|cnm|cnmb|nmsl|tmd|nmb|wcnm|fuck|shit|bitch|asshole)(?![a-z0-9])");
+
     static {
         // 涉黄
         high("约炮", "色情低俗");
@@ -95,6 +103,23 @@ public class SensitiveWordFilter {
         high("保过", "代写代考");
         high("学历代办", "诈骗与违规服务");
 
+        // 辱骂 / 人身攻击（LLM 复核不可用时由规则层兜底）
+        high("傻逼", "辱骂与人身攻击");
+        high("傻b", "辱骂与人身攻击");
+        high("煞笔", "辱骂与人身攻击");
+        high("傻叉", "辱骂与人身攻击");
+        high("草泥马", "辱骂与人身攻击");
+        high("操你妈", "辱骂与人身攻击");
+        high("草你妈", "辱骂与人身攻击");
+        high("日你妈", "辱骂与人身攻击");
+        high("你妈死了", "辱骂与人身攻击");
+        high("你妈的", "辱骂与人身攻击");
+        high("去你妈的", "辱骂与人身攻击");
+        high("滚你妈", "辱骂与人身攻击");
+        high("狗日的", "辱骂与人身攻击");
+        high("贱人", "辱骂与人身攻击");
+        high("智障", "辱骂与人身攻击");
+
         // 站外引流 / 营销（中风险）
         medium("加微信", "站外引流");
         medium("微信号", "站外引流");
@@ -149,7 +174,14 @@ public class SensitiveWordFilter {
                 riskLevel = 2;
             }
         }
-        // 2. 站外引流 / 营销词
+        // 2. 辱骂缩写（独立词匹配）
+        Matcher abuseMatcher = ABUSE_ABBR.matcher(normalized);
+        if (abuseMatcher.find()) {
+            matchedWords.add(abuseMatcher.group());
+            categories.add("辱骂与人身攻击");
+            riskLevel = 2;
+        }
+        // 3. 站外引流 / 营销词
         if (riskLevel < 2) {
             for (Map.Entry<String, String> entry : MEDIUM_WORDS.entrySet()) {
                 if (normalized.contains(normalize(entry.getKey()))) {
@@ -159,7 +191,7 @@ public class SensitiveWordFilter {
                 }
             }
         }
-        // 3. 手机号 / 社交账号 / 站外链接（在原始文本上匹配，避免归一化破坏格式）
+        // 4. 手机号 / 社交账号 / 站外链接（在原始文本上匹配，避免归一化破坏格式）
         Matcher phoneMatcher = PHONE.matcher(raw);
         if (phoneMatcher.find()) {
             matchedWords.add(mask(phoneMatcher.group()));

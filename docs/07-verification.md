@@ -282,3 +282,31 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 **验证**：在临时端口 9302 起新编译的 item 服务（不影响正在运行的旧进程）：`/item/comment/page` 全部 77 条 → `orderId=4119` 1 条（`orderNo=CM202611031719211309`）、`itemId=3161` 1 条、`status=1` 0 条、`orderId=999999` 0 条；`GET /api/system/dict/data/type/item_comment_status` → 3 条（正常/已隐藏/审核未通过）；`npm run build` ✓ 7.8s。
 
 **注意**：`orderId` 与 `orderNo` 是后端改动，需要重启 item 服务生效；字典已直接写库并清了缓存，刷新页面就能看到状态下拉。
+
+## 17. 内容审核「辱骂词也返回 pass=true」排查（2026-11-12，用户实测）
+
+用户问「这个内容审核真会进行审核吗，我进行辱骂的词语和简写也返回 true 吗」，并贴出「AI 配置 → 在线试用 → 内容审核」输入 `sb` 返回 `pass: true, provider: remote, costTime: 830` 的截图。
+
+**结论**：审核链路本身是两级（规则引擎 + 大模型复核），直接调接口时辱骂词是能拦住的；页面上之所以放行，是**字段名传错**导致后端审核了一段空文本。
+
+| # | 问题 | 根因 | 修复 |
+|---|---|---|---|
+| 60 | 后台「内容审核」试用对任何内容都返回 `pass=true` | `views/ai/config/index.vue` 调 `aiModerate({ content: demo.text })`，而接口只认 `title`/`description` → 两个字段都是空串，规则引擎对着空文本判定通过，大模型也收到空的标题与描述，回 `pass=true`（截图里 `costTime=830` 正是那次空调用） | 前端改传 `{ title:'', description: demo.text, content: demo.text, scene:'item' }`；后端 `ModerationRequest` 增加 `content` 字段，`ModerationService` 在 `title`/`description` 都为空时回退到 `content`，避免再次出现「审空文本」 |
+| 61 | 辱骂词只有大模型能识别，模型被限流/不可用时全部放行 | 规则库只有涉黄/赌博/毒品/违禁品/诈骗/代写代考/站外引流七类，没有辱骂类；降级到 `mock` 时 `mock` 恒返回通过 | `SensitiveWordFilter` 新增「辱骂与人身攻击」高危词（傻逼/傻b/煞笔/草泥马/操你妈/你妈死了/去你妈的/贱人/智障…）与缩写正则 `ABUSE_ABBR`（`sb|cnm|cnmb|nmsl|tmd|nmb|wcnm|fuck|shit|bitch|asshole`），命中即 `pass=false, riskLevel=2` |
+| 62 | 缩写子串误伤 | `sb` 若按子串匹配，`usb`、`5sb` 会被判违规 | `ABUSE_ABBR` 用 `(?<![a-z0-9])…(?![a-z0-9])` 限定为独立词；归一化仍会去掉空格与点线，`加 微 信`、`s.b` 这类绕过依旧能命中 |
+
+**验证**（把源码复制到 `_env/fixbuild4` 编译，起两个临时实例：9304 关掉 LLM 复核只看规则、9305 规则 + 模型）：
+
+```
+端口 9304（仅规则引擎）
+  sb / 傻逼 / cnm / nmsl / 草泥马 / 你妈死了 → pass=false risk=2 provider=rule
+  usb 数据线 / 5sb 电池 / 宿舍垃圾袋          → pass=true  （无子串误伤）
+  加微信 abc12345 详聊                      → pass=false risk=1 words=["加微信","微信 ***"]
+
+端口 9305（规则 + LLM 复核；临时实例无 API Key，remote 失败自动降级 mock，正好验证降级链）
+  同上，辱骂词被规则先拦（provider=rule），正常商品走 mock 兜底 pass=true
+```
+
+正在运行的生产 9204 实例（改动前代码 + 真实 DeepSeek Key）实测同样能拦住：`sb`→risk=1「标题包含辱骂性词汇」1882ms、`傻逼`→760ms、`cnmb`→「辱骂性脏话缩写（cnmb）」1007ms、`nmsl`→1210ms，正常商品 681ms 通过。
+
+**注意**：`ModerationRequest.content` 与规则库属于后端改动，需要重启 ai 服务生效（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）；前端「在线试用」的字段修正刷新页面即可。临时实例 9304/9305 由沙箱启动、`taskkill` 报「拒绝访问」无法回收，重启电脑后自然释放（对应 `_env/fixbuild4` 目录也需重启后删除）。

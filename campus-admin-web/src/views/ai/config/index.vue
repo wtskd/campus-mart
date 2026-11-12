@@ -229,7 +229,8 @@ async function runModerate() {
   if (!demo.text) return ElMessage.warning('请输入待审核内容')
   demo.modLoading = true
   try {
-    const res = await aiModerate({ content: demo.text })
+    // title/description 是审核接口的主字段，只传 content 会让规则与模型都对着空文本判断
+    const res = await aiModerate({ title: '', description: demo.text, content: demo.text, scene: 'item' })
     demo.result = JSON.stringify(res, null, 2)
   } catch (error) {
     demo.result = '调用失败：' + (error?.message || '接口异常')

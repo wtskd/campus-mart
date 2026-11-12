@@ -286,7 +286,7 @@
 |---|---|---|
 | POST | `/ai/copywrite` | 一键发布文案 → `{ title, summary, description, tags[], suggestPrice, provider, costMs }` |
 | POST | `/ai/chat` | 智能客服 RAG → `{ answer, sources:[{title, score}], provider, costMs }`（`{ "question":"怎么发布商品？" }`） |
-| POST | `/ai/moderate` | 内容审核 → `{ pass, riskLevel, words[], reason, provider, costTime }` |
+| POST | `/ai/moderate` | 内容审核 → `{ pass, riskLevel, words[], reason, provider, costTime }`；请求体 `{ itemId?, title?, description?, content?, scene? }`，`title`/`description` 都为空时取 `content` |
 | POST | `/ai/price` | 智能估价 → `{ suggestPrice, minPrice, maxPrice, reason, provider }` |
 | GET | `/ai/recommend?limit=8` | 首页个性化推荐（登录后自动带 userId，未登录走热度） |
 | GET | `/ai/scene/list` | 已配置的 Prompt 场景列表 |

@@ -48,6 +48,11 @@ public class ModerationService {
         long start = System.currentTimeMillis();
         String title = request == null ? "" : nvl(request.getTitle());
         String description = request == null ? "" : nvl(request.getDescription());
+        // 调用方可能只传一整段 content（后台在线试用、评论审核）：标题/描述都为空时回退到 content，
+        // 否则规则与模型都对着空文本判断，会误判为「通过」。
+        if (!StringUtils.hasText(title) && !StringUtils.hasText(description) && request != null) {
+            description = nvl(request.getContent());
+        }
         String itemId = request == null || request.getItemId() == null ? "" : String.valueOf(request.getItemId());
         String requestSummary = "itemId=" + itemId + " 标题=" + MockContentFactory.abbreviate(title, 120);
 
