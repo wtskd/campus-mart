@@ -136,6 +136,8 @@ node tools/http-checks.js        # 33 项接口冒烟
 node tools/func-test.mjs         # 56 项功能断言（CRUD/交易/AI，跑完自动清理）
 node tools/check-method-match.mjs # 前端声明 vs 后端映射，缺失应为 0
 node tools/refresh-stats.mjs     # 重算统计预聚合表
+node tools/check-page-fields.mjs  # 21 个列表页：表格字段 vs 接口返回字段
+node tools/check-query-params.mjs # 17 个列表页：筛选参数是否被后端识别
 ```
 
 详细步骤与常见问题见 [docs/06-build-and-run.md](docs/06-build-and-run.md)，验证结果见 [docs/07-verification.md](docs/07-verification.md)。

@@ -28,7 +28,6 @@
         <el-table-column prop="orderNum" label="排序" width="80" align="center" />
         <el-table-column prop="leader" label="负责人" width="120" />
         <el-table-column prop="phone" label="联系电话" width="140" />
-        <el-table-column prop="email" label="邮箱" min-width="180" />
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'info' : 'success'" size="small">
@@ -76,9 +75,6 @@
         </el-form-item>
         <el-form-item label="联系电话">
           <el-input v-model="form.phone" placeholder="选填" />
-        </el-form-item>
-        <el-form-item label="邮箱">
-          <el-input v-model="form.email" placeholder="选填" />
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="form.status">
@@ -154,7 +150,6 @@ function emptyForm() {
     orderNum: 1,
     leader: '',
     phone: '',
-    email: '',
     status: 0
   }
 }

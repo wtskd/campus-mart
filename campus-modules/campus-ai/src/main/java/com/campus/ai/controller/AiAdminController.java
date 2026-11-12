@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -84,8 +85,12 @@ public class AiAdminController {
             PageQuery query,
             @RequestParam(value = "scene", required = false) String scene,
             @RequestParam(value = "code", required = false) String code,
-            @RequestParam(value = "keyword", required = false) String keyword) {
-        return Result.ok(promptTemplateService.page(query, scene, code, keyword));
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "status", required = false) String status) {
+        // 后台列表页用「模板名称」输入框，早期前端发的是 name=，这里兼容两种写法
+        String kw = StringUtils.hasText(keyword) ? keyword : name;
+        return Result.ok(promptTemplateService.page(query, scene, code, kw, status));
     }
 
     @Operation(summary = "新增提示词模板")

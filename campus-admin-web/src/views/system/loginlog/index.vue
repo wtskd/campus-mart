@@ -3,15 +3,15 @@
     <el-card shadow="never" class="page-card">
       <div class="search-bar">
         <el-input
-          v-model="query.username"
+          v-model="query.userName"
           placeholder="登录账号"
           clearable
           style="width: 170px"
           @keyup.enter="handleSearch"
         />
         <el-select v-model="query.status" placeholder="登录状态" clearable style="width: 140px">
-          <el-option label="成功" :value="0" />
-          <el-option label="失败" :value="1" />
+          <el-option label="成功" value="0" />
+          <el-option label="失败" value="1" />
         </el-select>
         <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
         <el-button :icon="Refresh" @click="resetQuery">重置</el-button>
@@ -25,7 +25,7 @@
       </div>
 
       <el-table v-loading="loading" :data="list" border stripe>
-        <el-table-column prop="loginId" label="编号" width="90" align="center" />
+        <el-table-column prop="infoId" label="编号" width="90" align="center" />
         <el-table-column prop="username" label="登录账号" width="130" />
         <el-table-column prop="ipaddr" label="登录 IP" width="140" />
         <el-table-column prop="browser" label="浏览器" width="150" />
@@ -59,7 +59,7 @@ import { getLoginLogPage } from '@/api/system'
 
 const { loading, list, total, query, getList, handleSearch, resetQuery, handlePagination } = useTable(
   getLoginLogPage,
-  { username: '', status: '' }
+  { userName: '', status: '' }
 )
 </script>
 

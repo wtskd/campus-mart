@@ -80,11 +80,21 @@ public class PromptTemplateService {
     /* ==================== 管理端 ==================== */
 
     public PageResult<AiPromptTemplate> page(PageQuery query, String scene, String code, String keyword) {
+        return page(query, scene, code, keyword, null);
+    }
+
+    /**
+     * 提示词模板分页
+     *
+     * @param status 状态过滤：0 启用 / 1 停用，空表示全部（后台列表页的「状态」下拉用）
+     */
+    public PageResult<AiPromptTemplate> page(PageQuery query, String scene, String code, String keyword, String status) {
         LambdaQueryWrapper<AiPromptTemplate> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(scene)) {
             wrapper.in(AiPromptTemplate::getScene, AiScene.of(scene).dbScenes());
         }
         wrapper.eq(StringUtils.hasText(code), AiPromptTemplate::getCode, code);
+        wrapper.eq(StringUtils.hasText(status), AiPromptTemplate::getStatus, status);
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w.like(AiPromptTemplate::getName, keyword)
                     .or().like(AiPromptTemplate::getCode, keyword)

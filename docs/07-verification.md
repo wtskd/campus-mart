@@ -225,3 +225,35 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 - 前端：`npm run build` ✓ 7.4s；dev server（5180）对 `/src/views/system/file/index.vue`、`/src/utils/file.js` 均返回 200 且无 Transform failed
 
 **注意**：`fileId` / `createBy` 是 Long，后端序列化成字符串（`"6"`），所以前端 `uploaderName()` 与用户昵称映射表统一按 `String(id)` 取键。
+
+## 16. 后台列表页：字段名/筛选参数与后端不一致（2026-11-12，用户实测）
+
+用户看着操作日志页问：「操作日志的操作模块、操作类型和操作人为什么是空的，空的就不说了，为什么还要用空的来进行筛选」。
+
+真相：不是没数据，是**页面读的字段名和后端返回的不一样**（表格列空），同时**筛选参数名后端也不认识**（点了查询啥都没变，看起来像"用空值在筛选"）。
+
+| # | 现象 | 根因 | 修复 |
+|---|---|---|---|
+| 44 | 操作日志「操作模块 / 操作类型 / 操作人」三列全空 | 接口返回 `title / businessType / operName / costTime`，页面写的是 `module / operType / operator / costMs` | 重写 `views/system/operlog/index.vue`：列改为 `operId/title/businessType(tag)/operName/deptName/requestMethod/operUrl/operIp/status/costTime/operTime`，另加详情弹窗（请求参数、返回 JSON、错误信息） |
+| 45 | 操作日志的模块/操作人筛选点了没反应 | 前端发 `module=`、`operator=`，后端 `SysOperLogController.list` 只认 `title/operName/status/businessType/beginTime/endTime` | query 改为 `{title, operName, businessType, status}`，并补「操作类型」下拉（1新增/2修改/3删除/4查询/5导出/9清空） |
+| 46 | 登录日志「编号」列空 | 页面 `prop="loginId"`，后端返回 `infoId` | `views/system/loginlog/index.vue` 改为 `prop="infoId"` |
+| 47 | 登录日志「登录账号」筛选无效 | 前端发 `username=`，控制器参数名是 `userName`（`SysLoginLogController.java:37`） | 前端 query key 改为 `userName`，状态下拉 `:value="0"` 改成 `value="0"`（字符串，与 `status char(1)` 一致） |
+| 48 | 学院管理出现「邮箱」列/表单项，填了不保存 | `sys_dept` 表没有 `email` 列 | 删列、删表单项、删 `email: ''` 初始值 |
+| 49 | 轮播管理出现「备注」列，永远空 | `biz_banner` 表没有 `remark` 列 | 删列、删备注 textarea |
+| 50 | 商品分类出现「创建时间」列，永远空 | `CategoryTreeVO` 只有 `categoryId/parentId/categoryName/icon/orderNum/status/children` | 删列 |
+| 51 | 举报管理的「举报原因」筛选无效 | `ReportQueryDTO` 没有 `reasonType` 字段（只有 itemId/reporterId/status/时间） | DTO 加 `reasonType`，`ReportServiceImpl.adminPage` 加等值条件 |
+| 52 | AI 提示词模板的「模板名称 / 状态」筛选无效 | 接口只认 `scene/code/keyword`，页面发的是 `name/status` | `AiAdminController.promptPage` 增加 `name`（兼容 `keyword`）与 `status` 参数，`PromptTemplateService.page` 增加重载带 `status` 等值过滤 |
+
+**新增两个体检脚本（黑盒，不需要读后端源码）**：
+
+- `node tools/check-page-fields.mjs`：解析 21 个列表页的 `<el-table-column prop>`（无 prop 的表格退化为扫 `row.x`），真实调一次接口，比对「页面声明了但接口没返回」的字段 → 本轮查出 4 处（#46 #48 #49 #50），修复后 **checked=21 problems=0**。
+- `node tools/check-query-params.mjs`：取出每个页面 query 对象里的筛选 key，先用无筛选请求记下 total，再带上 `key=不可能命中的值` 请求一次；total 变小=参数生效，total 不变=后端不认识这个参数名 → 本轮查出 3 处（登录日志 `username`、举报 `reasonType`、提示词 `name/status`），修复后 **checked=49 problems=0**（另有 4 个 WARN：`status=-999999` 这类非法枚举会被参数校验直接 400，属于「参数已绑定」，不计为问题）。
+
+**验证**：
+
+- 操作日志筛选（真实数据 178 条）：`title=文件` → 16；`operName=admin` → 168；`businessType=3` → 23；`status=0` → 145；`title=商品&businessType=2` → 5
+- 举报原因（用临时端口 9302 起新编译的 item 服务验证，未打扰正在运行的旧进程）：全部 15 → `reasonType=fake` 3 / `price` 3 / `other` 4
+- 提示词模板（临时端口 9304 起新编译的 ai 服务）：全部 4 → `status=1` 0、`status=0` 4、`name=文案` 1、`keyword=文案` 1
+- `npm run build` ✓ 7.5s；dev server 对 operlog/loginlog/dept/banner 四个页面均 200 且无 Transform failed
+
+**注意**：`item` 与 `ai` 两个服务改了 Java 代码，需要重启才生效（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）；只改了前端页面的部分（操作日志、登录日志、学院、轮播、分类）刷新浏览器即可。

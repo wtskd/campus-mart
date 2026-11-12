@@ -32,7 +32,6 @@
         <el-table-column prop="title" label="标题" min-width="200" />
         <el-table-column prop="linkUrl" label="跳转地址" min-width="200" show-overflow-tooltip />
         <el-table-column prop="sort" label="排序" width="80" align="center" />
-        <el-table-column prop="remark" label="备注" min-width="140" show-overflow-tooltip />
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'info' : 'success'" size="small">
@@ -93,9 +92,6 @@
             <el-radio :value="1">停用</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="form.remark" type="textarea" :rows="2" />
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -135,7 +131,6 @@ function emptyForm() {
     linkValue: '',
     sort: 1,
     status: 0,
-    remark: ''
   }
 }
 

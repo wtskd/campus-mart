@@ -113,6 +113,9 @@ public class ReportServiceImpl implements ReportService {
         if (query.getStatus() != null) {
             wrapper.eq(BizReport::getStatus, query.getStatus());
         }
+        if (query.getReasonType() != null && !query.getReasonType().isBlank()) {
+            wrapper.eq(BizReport::getReasonType, query.getReasonType());
+        }
         if (query.getBeginTime() != null) {
             wrapper.ge(BizReport::getCreateTime, query.getBeginTime());
         }

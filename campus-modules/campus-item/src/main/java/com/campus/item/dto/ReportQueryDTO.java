@@ -29,6 +29,9 @@ public class ReportQueryDTO extends PageQuery {
     @Schema(description = "状态：0待处理 1已处理 2驳回")
     private Integer status;
 
+    @Schema(description = "举报原因：illegal/fake/price/harass/other")
+    private String reasonType;
+
     @Schema(description = "举报时间起，格式 yyyy-MM-dd HH:mm:ss")
     @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime beginTime;
