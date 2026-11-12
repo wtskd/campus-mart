@@ -310,3 +310,17 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 正在运行的生产 9204 实例（改动前代码 + 真实 DeepSeek Key）实测同样能拦住：`sb`→risk=1「标题包含辱骂性词汇」1882ms、`傻逼`→760ms、`cnmb`→「辱骂性脏话缩写（cnmb）」1007ms、`nmsl`→1210ms，正常商品 681ms 通过。
 
 **注意**：`ModerationRequest.content` 与规则库属于后端改动，需要重启 ai 服务生效（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）；前端「在线试用」的字段修正刷新页面即可。临时实例 9304/9305 由沙箱启动、`taskkill` 报「拒绝访问」无法回收，重启电脑后自然释放（对应 `_env/fixbuild4` 目录也需重启后删除）。
+
+## 18. 「一个学生有 4 个角色」核查（2026-11-12，用户实测）
+
+用户在用户管理里看到 `student05` 同时挂着「超级管理员 / 运营管理员 / 审核专员 / 普通用户」四个角色，问是不是 bug。
+
+**结论**：多角色本身不是 bug——`sys_user_role` 是多对多，一个账号可以同时拥有多个角色，登录后拿到的权限是这些角色的**并集**（`SysUserServiceImpl.fillLoginInfo` 取 `selectRoleKeysByUserId` 的全部角色）。后台「分配角色」弹窗也是多选框，属于设计如此。
+
+但这条数据是**测试残留**：全库 20 个用户里只有 `student05`（user_id 22）是 4 个角色，其余都是 1 个；`sql/05-rich-data.sql:51` 给 `student04~student17` 只插了 `role_id=4`。是之前联调「分配角色」时勾多了没还原。
+
+**处理**：
+- 数据：`DELETE FROM sys_user_role WHERE user_id = 22 AND role_id <> 4;` → student05 恢复为「普通用户」；复查 `GET /api/system/user/list` 20 个用户均 ≤1 个角色。重跑 `sql/05-rich-data.sql` 也会把它重置（第 33 行先删 21–34 的绑定再插入）。
+- 交互：「分配角色」弹窗补灰字说明「可多选，登录后的权限是所选角色的并集；学生账号通常只需要「普通用户」」，并加保护——一个角色都不选时提示「至少为用户保留一个角色」，避免出现无角色账号（此时后端 `update` 会先删光、`saveUserRoles` 又因空列表直接返回）。
+
+**给答辩的解释**：这是 RBAC 的多角色模型，权限取并集；演示数据里学生保留单一「普通用户」角色，管理员/运营/审核各司其职，需要看组合权限时再把角色勾给同一个账号即可（例如让 `operator` 临时兼「审核专员」演示菜单变化）。

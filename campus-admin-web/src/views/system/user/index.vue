@@ -222,6 +222,7 @@
     <!-- 分配角色 -->
     <el-dialog v-model="roleVisible" title="分配角色" width="460px">
       <p class="assign-tip">为用户「{{ currentUser.nickname }}」分配角色：</p>
+      <p class="assign-note">可多选，登录后的权限是所选角色的并集；学生账号通常只需要「普通用户」。</p>
       <el-checkbox-group v-model="assignRoleIds">
         <el-checkbox v-for="role in roleList" :key="role.roleId" :value="role.roleId" class="role-checkbox">
           {{ role.roleName }}（{{ role.roleKey }}）
@@ -425,6 +426,10 @@ function openAssignRole(row) {
 }
 
 async function submitAssignRole() {
+  if (!assignRoleIds.value.length) {
+    ElMessage.warning('至少为用户保留一个角色')
+    return
+  }
   roleSubmitting.value = true
   try {
     await updateUser({ ...currentUser.value, roleIds: assignRoleIds.value })
@@ -466,6 +471,13 @@ onMounted(async () => {
 .assign-tip {
   margin: 0 0 12px;
   color: #606266;
+}
+
+.assign-note {
+  margin: -6px 0 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #909399;
 }
 
 .role-checkbox {
