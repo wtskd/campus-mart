@@ -257,3 +257,12 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 - `npm run build` ✓ 7.5s；dev server 对 operlog/loginlog/dept/banner 四个页面均 200 且无 Transform failed
 
 **注意**：`item` 与 `ai` 两个服务改了 Java 代码，需要重启才生效（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）；只改了前端页面的部分（操作日志、登录日志、学院、轮播、分类）刷新浏览器即可。
+
+### 16.1 分类管理：展开/折叠无反应、图标列显示破图（2026-11-12，用户实测）
+
+| # | 现象 | 根因 | 修复 |
+|---|---|---|---|
+| 53 | 点「展开/折叠」按钮，表格没有任何变化 | `el-table` 的 `default-expand-all` **只在组件初始化时读一次**，运行中把 `expandAll` 从 true 改成 false 不会让已展开的行收起来（Element Plus 需要主动 `toggleRowExpansion`） | 给表格加 `:key="\`tree-${expandAll}\`"`，值一变就按新的 `default-expand-all` 重建一次（树只有两级、40 个节点，重建没有可感知开销）；`toggleExpand()` 只负责翻转 `expandAll` |
+| 54 | 「图标」列一级分类显示破图，二级分类显示 `-` | `biz_category.icon` 存的是**图标名**（`phone / education / shopping / run / star / home / music / more`，供用户端按名字渲染），后台页面却当成图片地址塞进 `<el-image :src>` | 图标列分两种渲染：`http(s)://` 或 `/` 开头才当图片（经 `resolveFileUrl` 拼绝对地址），否则用 `el-tag` 显示图标名；表单标签由「图标 URL」改为「图标」，占位提示「图标名（phone / education）或图片地址」 |
+
+**验证**：`GET /api/item/category/list` → 40 条，一级 8 个的 `icon` 依次为 `phone/education/shopping/run/star/home/music/more`（确认为图标名而非地址）；`npm run build` ✓ 7.8s；dev server（5180）对 `src/views/item/category/index.vue` 返回 200 且无 Transform failed。

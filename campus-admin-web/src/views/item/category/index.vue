@@ -12,6 +12,7 @@
 
     <el-card shadow="never">
       <el-table
+        :key="`tree-${expandAll}`"
         v-loading="loading"
         :data="tableData"
         row-key="categoryId"
@@ -20,9 +21,16 @@
         :tree-props="{ children: 'children' }"
       >
         <el-table-column prop="categoryName" label="分类名称" min-width="200" />
-        <el-table-column label="图标" width="90" align="center">
+        <el-table-column label="图标" width="110" align="center">
           <template #default="{ row }">
-            <el-image v-if="row.icon" :src="row.icon" fit="contain" style="width: 24px; height: 24px" />
+            <!-- 分类的 icon 有两种存法：图片地址（/upload/... 或 http）或图标名（phone/education，用户端按名字渲染） -->
+            <el-image
+              v-if="isImageIcon(row.icon)"
+              :src="resolveFileUrl(row.icon)"
+              fit="contain"
+              style="width: 24px; height: 24px"
+            />
+            <el-tag v-else-if="row.icon" size="small" type="info" effect="plain">{{ row.icon }}</el-tag>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -64,8 +72,8 @@
         <el-form-item label="分类名称" prop="categoryName">
           <el-input v-model="form.categoryName" placeholder="如：教材书籍" maxlength="32" show-word-limit />
         </el-form-item>
-        <el-form-item label="图标 URL">
-          <el-input v-model="form.icon" placeholder="选填，分类小图标地址" />
+        <el-form-item label="图标">
+          <el-input v-model="form.icon" placeholder="图标名（phone / education）或图片地址，选填" />
         </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.orderNum" :min="0" :max="9999" />
@@ -90,6 +98,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh, Search, Sort } from '@element-plus/icons-vue'
 import { addCategory, deleteCategory, getCategoryList, updateCategory, updateCategoryStatus } from '@/api/item'
+import { resolveFileUrl } from '@/utils/file'
 import { useUserStore } from '@/store/user'
 
 const loading = ref(false)
@@ -102,6 +111,11 @@ const userStore = useUserStore()
 
 function hasPerm(perm) {
   return userStore.hasPerm(perm)
+}
+
+/** icon 字段是图片地址还是图标名 */
+function isImageIcon(icon) {
+  return typeof icon === 'string' && (/^https?:\/\//.test(icon) || icon.startsWith('/'))
 }
 
 /** 扁平列表 → 树（分类接口 /category/list 返回平铺数据） */
@@ -144,6 +158,13 @@ function handleReset() {
   loadList()
 }
 
+/**
+ * 展开 / 折叠全部
+ *
+ * el-table 的 default-expand-all 只在组件初始化时生效，运行中改这个值不会重新展开/收起，
+ * 所以这里给表格绑一个随 expandAll 变化的 key，让表格按新的 default-expand-all 重建一次。
+ * （树只有两级、40 来个节点，重建代价可以忽略）
+ */
 function toggleExpand() {
   expandAll.value = !expandAll.value
 }
