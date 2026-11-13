@@ -35,14 +35,21 @@ public class ChatResponse {
         private Long knowledgeId;
         private String title;
         private Double score;
+        /** 知识库条目正文摘要：前端点开「引用来源」时展示，避免再发一次请求 */
+        private String snippet;
 
         public Source() {
         }
 
         public Source(Long knowledgeId, String title, Double score) {
+            this(knowledgeId, title, score, null);
+        }
+
+        public Source(Long knowledgeId, String title, Double score, String snippet) {
             this.knowledgeId = knowledgeId;
             this.title = title;
             this.score = score;
+            this.snippet = snippet;
         }
     }
 }

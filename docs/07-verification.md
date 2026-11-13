@@ -364,3 +364,25 @@ cd campus-app && npm run build:h5      # DONE Build complete.
 ```
 
 > 操作日志/登录日志的删除按钮属于前端改动，刷新页面即可；后端本轮只删了无用 import，已编译验证，但运行中的 jar 仍是旧包——下次 `bash scripts/start-all.sh` 会因源码比 jar 新而自动重建。
+
+## 20. AI 客服「引用来源」可点击查看（2026-11-13，用户反馈）
+
+用户看到「📚 引用来源」下列了 4 条知识条目（交易流程说明 / 退款与取消规则 / 支持哪些支付方式 / 如何发布二手商品）和相关度，问「这个引用来源我点击不了吗」。
+
+**改动前**：`campus-app/src/components/ai-chat.vue` 里来源只是两段 `<text>`（标题 + 相关度），没有交互，也拿不到正文——后端 `ChatResponse.Source` 只返回 `knowledgeId / title / score`。
+
+**改动**：
+- 后端 `ChatResponse.Source` 增加 `snippet` 字段（知识条目正文摘要），`ChatService.toSources` 用 `MockContentFactory.abbreviate(hit.getContent(), 260)` 填充；`KnowledgeHitVO` 本来就带 `content`，不需要额外查询。
+- 用户端来源条目改成可点击（`hover-class="source-hover"` + 右侧 `›`），点开后底部弹出「知识条目 #id · 相关度 → 正文摘要」，附一行说明「内容来自平台知识库，AI 回答基于该条目检索增强生成」。
+- 未重启后端时（旧包没有 `snippet`）弹层给兜底文案：「这条知识还没有摘要内容，可在后台「AI 管理 → 知识库」查看全文」，不会白屏。
+
+**验证**（临时实例 9306，用复制目录构建的新包，避免锁住运行中的 jar）：
+
+```bash
+curl -s -X POST http://127.0.0.1:9306/ai/chat -H 'Content-Type: application/json' \
+  -d '{"question":"怎么退款？交易流程是怎样的"}'
+```
+
+返回 5 条 sources，首条 `{"id":2,"title":"交易流程说明","score":1.55,"snippet":"买家在商品详情页点击\"我想要\"，提交订单后卖家确认，双方约定线下交易地点完成面交…"}`；`npm run build:h5` → `DONE Build complete.`。
+
+> 生效方式：前端刷新页面即可（dev server HMR）；`snippet` 需要重启 ai 服务（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）。

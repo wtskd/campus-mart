@@ -20,11 +20,19 @@
           <!-- 引用来源 -->
           <view v-if="m.sources && m.sources.length" class="sources">
             <text class="sources-title">📚 引用来源</text>
-            <view v-for="(s, i) in m.sources" :key="i" class="source-item">
+            <view
+              v-for="(s, i) in m.sources"
+              :key="i"
+              class="source-item"
+              hover-class="source-hover"
+              :hover-stay-time="60"
+              @tap="openSource(s)"
+            >
               <text class="source-name">{{ s.title || s.source || '知识库片段' }}</text>
               <text v-if="s.score !== undefined && s.score !== null" class="source-score">
                 相关度 {{ Number(s.score).toFixed(2) }}
               </text>
+              <text class="source-arrow">›</text>
             </view>
           </view>
 
@@ -58,6 +66,28 @@
       />
       <view class="send-btn" :class="{ disabled: sending }" @tap="send()">发送</view>
     </view>
+
+    <!-- 引用来源详情：点来源条目打开，展示知识库条目正文摘要 -->
+    <view v-if="sourceVisible" class="src-mask" @tap="closeSource">
+      <view class="src-sheet" @tap.stop>
+        <view class="src-head">
+          <text class="src-title">{{ activeSource.title || '知识库片段' }}</text>
+          <text class="src-close" @tap="closeSource">✕</text>
+        </view>
+        <view class="src-meta">
+          <text v-if="activeSource.knowledgeId">知识条目 #{{ activeSource.knowledgeId }}</text>
+          <text v-if="activeSource.score !== undefined && activeSource.score !== null">
+            · 相关度 {{ Number(activeSource.score).toFixed(2) }}
+          </text>
+        </view>
+        <scroll-view class="src-body" scroll-y>
+          <text class="src-text">
+            {{ activeSource.snippet || '这条知识还没有摘要内容，可在后台「AI 管理 → 知识库」查看全文。' }}
+          </text>
+        </scroll-view>
+        <view class="src-tip">内容来自平台知识库，AI 回答基于该条目检索增强生成</view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -76,6 +106,19 @@ const props = defineProps({
   height: { type: String, default: '760rpx' },
   showHeader: { type: Boolean, default: true }
 })
+
+const sourceVisible = ref(false)
+const activeSource = ref({})
+
+function openSource(source) {
+  if (!source) return
+  activeSource.value = source
+  sourceVisible.value = true
+}
+
+function closeSource() {
+  sourceVisible.value = false
+}
 
 const messages = ref([
   { role: 'ai', text: props.welcome, sources: [], meta: '' }
@@ -250,6 +293,71 @@ defineExpose({ send, reset })
   .source-score {
     color: $cm-text-4;
     margin-left: 12rpx;
+  }
+  .source-arrow {
+    margin-left: 8rpx;
+    color: $cm-text-4;
+    font-size: 24rpx;
+  }
+  .source-hover {
+    background-color: rgba(64, 158, 255, 0.08);
+    border-radius: 8rpx;
+  }
+
+  /* 引用来源详情弹层 */
+  .src-mask {
+    position: fixed;
+    left: var(--window-left, 0);
+    right: var(--window-right, 0);
+    top: 0;
+    bottom: 0;
+    z-index: 99;
+    background-color: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: flex-end;
+  }
+  .src-sheet {
+    width: 100%;
+    background-color: #ffffff;
+    border-radius: 24rpx 24rpx 0 0;
+    padding: 28rpx 30rpx calc(28rpx + env(safe-area-inset-bottom));
+  }
+  .src-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .src-title {
+    flex: 1;
+    font-size: 30rpx;
+    font-weight: 600;
+    color: $cm-text;
+  }
+  .src-close {
+    padding: 0 8rpx;
+    font-size: 28rpx;
+    color: $cm-text-4;
+  }
+  .src-meta {
+    margin-top: 8rpx;
+    font-size: 22rpx;
+    color: $cm-text-4;
+  }
+  .src-body {
+    margin-top: 18rpx;
+    max-height: 46vh;
+  }
+  .src-text {
+    font-size: 26rpx;
+    line-height: 44rpx;
+    color: $cm-text-2;
+  }
+  .src-tip {
+    margin-top: 20rpx;
+    padding-top: 16rpx;
+    border-top: 1rpx dashed $cm-border;
+    font-size: 20rpx;
+    color: $cm-text-4;
   }
   .meta {
     margin-top: 8rpx;

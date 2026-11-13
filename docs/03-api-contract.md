@@ -285,7 +285,7 @@
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/ai/copywrite` | 一键发布文案 → `{ title, summary, description, tags[], suggestPrice, provider, costMs }` |
-| POST | `/ai/chat` | 智能客服 RAG → `{ answer, sources:[{title, score}], provider, costMs }`（`{ "question":"怎么发布商品？" }`） |
+| POST | `/ai/chat` | 智能客服 RAG → `{ answer, sources:[{knowledgeId, title, score, snippet}], suggestions, provider, costMs }`（`{ "question":"怎么发布商品？", "sessionId":"可选" }`）；`snippet` 是知识条目正文摘要（≤260 字），前端点「引用来源」直接展示 |
 | POST | `/ai/moderate` | 内容审核 → `{ pass, riskLevel, words[], reason, provider, costTime }`；请求体 `{ itemId?, title?, description?, content?, scene? }`，`title`/`description` 都为空时取 `content` |
 | POST | `/ai/price` | 智能估价 → `{ suggestPrice, minPrice, maxPrice, reason, provider }` |
 | GET | `/ai/recommend?limit=8` | 首页个性化推荐（登录后自动带 userId，未登录走热度） |

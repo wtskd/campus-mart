@@ -125,7 +125,8 @@ public class ChatService {
             if (hit == null) {
                 continue;
             }
-            sources.add(new ChatResponse.Source(hit.getKnowledgeId(), hit.getTitle(), hit.getScore()));
+            sources.add(new ChatResponse.Source(hit.getKnowledgeId(), hit.getTitle(), hit.getScore(),
+                    MockContentFactory.abbreviate(hit.getContent(), 260)));
         }
         return sources;
     }
