@@ -63,7 +63,9 @@ public class SysFileServiceImpl implements SysFileService {
         ServiceException.throwIf(file == null || file.isEmpty(), "上传文件不能为空");
         String originalName = StrUtil.blankToDefault(file.getOriginalFilename(), "unknown");
         String ext = resolveExt(originalName);
-        ServiceException.throwIf(!ALLOWED_EXT.contains(ext), "不支持的文件类型：" + ext);
+        if (!ALLOWED_EXT.contains(ext)) {
+            throw new ServiceException(400, "不支持的文件类型：" + ext + "，仅支持 " + String.join("、", ALLOWED_EXT));
+        }
         ServiceException.throwIf(file.getSize() > MAX_SIZE, "文件大小不能超过 10MB");
 
         String dateDir = LocalDate.now().format(DATE_DIR);

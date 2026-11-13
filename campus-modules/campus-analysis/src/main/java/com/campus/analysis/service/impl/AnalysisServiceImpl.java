@@ -38,7 +38,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -320,6 +322,14 @@ public class AnalysisServiceImpl implements AnalysisService {
         LocalDate end = AnalysisUtils.today();
         LocalDate start = end.minusDays(d - 1L);
         List<RetentionRow> rows = statMapper.selectRetentionRows(start, end);
+        // 按日期建索引：SQL 只返回「当天有活跃用户」的日期，缺的日期在这里补 0，
+        // 保证 days=7 就返回 7 个点，前端折线图不会因为某几天没人下单/收藏就断成 1 个点
+        Map<String, RetentionRow> rowMap = new LinkedHashMap<>();
+        for (RetentionRow row : rows) {
+            if (row != null && row.getCohortDate() != null) {
+                rowMap.put(AnalysisUtils.format(row.getCohortDate()), row);
+            }
+        }
 
         RetentionDTO dto = new RetentionDTO();
         dto.setDays(d);
@@ -327,13 +337,15 @@ public class AnalysisServiceImpl implements AnalysisService {
         long total1 = 0L;
         long total3 = 0L;
         long total7 = 0L;
-        for (RetentionRow row : rows) {
-            long active = AnalysisUtils.nvl(row.getActiveUsers());
-            long retained1 = AnalysisUtils.nvl(row.getRetained1());
-            long retained3 = AnalysisUtils.nvl(row.getRetained3());
-            long retained7 = AnalysisUtils.nvl(row.getRetained7());
+        for (LocalDate cursor = start; !cursor.isAfter(end); cursor = cursor.plusDays(1)) {
+            String date = AnalysisUtils.format(cursor);
+            RetentionRow row = rowMap.get(date);
+            long active = row == null ? 0L : AnalysisUtils.nvl(row.getActiveUsers());
+            long retained1 = row == null ? 0L : AnalysisUtils.nvl(row.getRetained1());
+            long retained3 = row == null ? 0L : AnalysisUtils.nvl(row.getRetained3());
+            long retained7 = row == null ? 0L : AnalysisUtils.nvl(row.getRetained7());
             RetentionPointDTO point = new RetentionPointDTO();
-            point.setDate(AnalysisUtils.format(row.getCohortDate()));
+            point.setDate(date);
             point.setActiveUsers(active);
             point.setRetained1(retained1);
             point.setRetained3(retained3);

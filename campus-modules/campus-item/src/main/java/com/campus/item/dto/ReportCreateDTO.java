@@ -34,6 +34,8 @@ public class ReportCreateDTO implements Serializable {
     @Schema(description = "举报原因（字典 report_reason：fake 虚假信息 / illegal 违禁品 / price 价格违规 / harass 骚扰辱骂 等）",
             requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "举报原因不能为空")
+    @Pattern(regexp = "^(illegal|fake|price|harass|other)$",
+            message = "举报原因只能为 illegal、fake、price、harass、other")
     @Size(max = 32, message = "举报原因不能超过 32 个字符")
     private String reason;
 

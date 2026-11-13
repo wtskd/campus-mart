@@ -140,6 +140,7 @@ node tools/check-page-fields.mjs  # 21 个列表页：表格字段 vs 接口返�
 node tools/check-query-params.mjs # 17 个列表页：筛选参数是否被后端识别
 node tools/check-app-api.mjs      # 用户端 17 个接口连通性
 node tools/check-admin-shapes.mjs # 后台 19 项数据结构断言（趋势/RFM/概览/大屏）
+node tools/edge-test.mjs          # 异常路径体检（越权/非法参数/状态机/上传类型）
 ```
 
 演示数据是脚本生成的，可复现（固定随机种子）：

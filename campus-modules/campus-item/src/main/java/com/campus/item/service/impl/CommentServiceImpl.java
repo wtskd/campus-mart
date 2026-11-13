@@ -81,7 +81,7 @@ public class CommentServiceImpl implements CommentService {
         Long userId = SecurityUtils.requireUserId();
         BizOrder order = orderMapper.selectById(dto.getOrderId());
         if (order == null) {
-            throw new ServiceException("订单不存在");
+            throw new ServiceException(404, "订单不存在");
         }
         if (!userId.equals(order.getBuyerId())) {
             throw new ServiceException(403, "只能评价自己购买的商品");
@@ -95,7 +95,7 @@ public class CommentServiceImpl implements CommentService {
         Long exist = commentMapper.selectCount(Wrappers.lambdaQuery(BizComment.class)
                 .eq(BizComment::getOrderId, dto.getOrderId()));
         if (exist != null && exist > 0) {
-            throw new ServiceException("该订单已评价，请勿重复评价");
+            throw new ServiceException(400, "该订单已评价，请勿重复评价");
         }
 
         // AI 内容审核：AI 服务不可用时兜底放行
@@ -114,7 +114,7 @@ public class CommentServiceImpl implements CommentService {
         try {
             commentMapper.insert(comment);
         } catch (DuplicateKeyException e) {
-            throw new ServiceException("该订单已评价，请勿重复评价");
+            throw new ServiceException(400, "该订单已评价，请勿重复评价");
         }
 
         // 审核未通过：落库为 status='2'（后台可见、前台不展示），随后直接拒绝并提示

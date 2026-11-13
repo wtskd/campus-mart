@@ -6,6 +6,7 @@ import com.campus.ai.provider.AiProviderRouter;
 import com.campus.ai.provider.AiResponse;
 import com.campus.ai.support.LlmJsonParser;
 import com.campus.ai.support.MockContentFactory;
+import com.campus.common.core.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,9 @@ public class CopywritingService {
     private final AiCallLogService callLogService;
 
     public CopywritingResponse generate(CopywritingRequest request) {
+        if (request == null || !hasAnyInput(request)) {
+            throw new ServiceException(400, "请至少填写商品标题或补充说明，AI 才能生成发布文案");
+        }
         long start = System.currentTimeMillis();
         Map<String, String> vars = buildVariables(request);
         PromptTemplateService.ResolvedPrompt resolved = promptTemplateService.resolve("copywrite", vars);
@@ -74,6 +78,16 @@ public class CopywritingService {
         return result;
     }
 
+    /** AI 生成文案至少需要一个输入，否则只会返回空泛的模板内容 */
+    private boolean hasAnyInput(CopywritingRequest request) {
+        return StringUtils.hasText(request.getTitle())
+                || StringUtils.hasText(request.getOriginalTitle())
+                || StringUtils.hasText(request.getRemark())
+                || (request.getKeywords() != null && !request.getKeywords().isEmpty())
+                || request.getOriginalPrice() != null
+                || request.getPrice() != null;
+    }
+
     private boolean usable(LlmJsonParser.CopywritingResult parsed) {
         return parsed != null
                 && StringUtils.hasText(parsed.title())
@@ -89,7 +103,8 @@ public class CopywritingService {
         String condition = nvl(request.getCondition());
         String price = priceText(request.getPrice());
         String originalPrice = priceText(request.getOriginalPrice());
-        String originalTitle = firstNonBlank(request.getOriginalTitle(), request.getRemark());
+        // title 是后台试用/文档字段，app 端发布页传的是 keywords + remark，这里三者兼容
+        String originalTitle = firstNonBlank(request.getTitle(), request.getOriginalTitle(), request.getRemark());
 
         Map<String, String> vars = new LinkedHashMap<>();
         // 英文占位符（{{categoryName}} 等）

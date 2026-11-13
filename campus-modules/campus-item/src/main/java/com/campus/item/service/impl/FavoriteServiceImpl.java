@@ -55,7 +55,7 @@ public class FavoriteServiceImpl implements FavoriteService {
         Long userId = SecurityUtils.requireUserId();
         BizItem item = itemMapper.selectById(itemId);
         if (item == null || !isFavoriteable(item.getStatus())) {
-            throw new ServiceException("商品不存在或已下架");
+            throw new ServiceException(404, "商品不存在或已下架");
         }
         Long exist = favoriteMapper.selectCount(Wrappers.lambdaQuery(BizFavorite.class)
                 .eq(BizFavorite::getUserId, userId)

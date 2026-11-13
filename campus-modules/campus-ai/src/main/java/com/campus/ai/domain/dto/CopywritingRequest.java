@@ -42,6 +42,10 @@ public class CopywritingRequest {
     /** 原价（可选） */
     private BigDecimal originalPrice;
 
+    /** 商品标题（后台「AI 配置 · 在线试用」与文档字段） */
+    @Size(max = 200, message = "商品标题过长")
+    private String title;
+
     /** 补充说明 / 原标题 */
     @Size(max = 200, message = "补充说明过长")
     private String originalTitle;

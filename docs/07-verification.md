@@ -387,3 +387,60 @@ curl -s -X POST http://127.0.0.1:9306/ai/chat -H 'Content-Type: application/json
 返回 5 条 sources，首条 `{"id":2,"title":"交易流程说明","score":1.55,"snippet":"买家在商品详情页点击\"我想要\"，提交订单后卖家确认，双方约定线下交易地点完成面交…"}`；`npm run build:h5` → `DONE Build complete.`。
 
 > 生效方式：前端刷新页面即可（dev server HMR）；`snippet` 需要重启 ai 服务（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）。
+
+## 21. 全量测试（2026-11-13，用户要求「全量测试找 bug」）
+
+这轮在原有 7 个脚本之上补了一个 **异常路径** 套件 `tools/edge-test.mjs`：正常的 CRUD 前面已经覆盖，这里专门打非法参数、越权、不存在的 ID、状态机非法流转、非法文件类型，标准是「不能 500，该拦的要拦」。
+
+### 21.1 回归结果（运行中的全栈）
+
+| 脚本 | 结果 |
+| --- | --- |
+| `tools/http-checks.js` | PASS=33 FAIL=0（含真实 DeepSeek 文案 1580ms / RAG 4 条来源） |
+| `tools/func-test.mjs` | PASS=56 FAIL=0 |
+| `tools/check-method-match.mjs` | 前端 131 / 后端 193，缺失 0 |
+| `tools/check-app-api.mjs` | 17/17 OK |
+| `tools/check-page-fields.mjs` | checked=21 problems=0 |
+| `tools/check-query-params.mjs` | checked=49 problems=0 warns=4 |
+| `tools/check-admin-shapes.mjs` | **18/19**，唯一失败：留存只有 1 个点（见 #63） |
+| `tools/edge-test.mjs`（新增） | 首轮 40/51，失败项见下表 |
+
+### 21.2 修掉的问题
+
+| # | 现象 | 根因 | 修复 |
+| --- | --- | --- | --- |
+| 63 | 用户分析「留存」折线只有 1 个点（`/analysis/retention?days=7` 返回 len=1） | `StatMapper.selectRetentionRows` 只返回「当天有人下单或收藏」的日期，服务层直接遍历结果，缺日期不补 | `AnalysisServiceImpl.retention` 建 `LinkedHashMap<String, RetentionRow>` 后从 start 逐日循环到 end，缺失日期补 0；验证 days=7 → 7 点、days=30 → 30 点 |
+| 64 | 商品详情 / 收藏不存在商品返回 code=500 | `ServiceException("商品不存在或已下架")` 走默认业务码 500 | 改为 `new ServiceException(404, ...)`（`ItemServiceImpl` 两处、`FavoriteServiceImpl` 一处） |
+| 65 | 发布商品不传图片也能成功，列表封面空白 | `ItemPublishDTO.images` 没有校验注解 | `@NotEmpty` + `@Size(max = 9)`，提示「请至少上传 1 张商品图片」/「商品图片最多 9 张」 |
+| 66 | 举报原因传 `not-a-reason` 也提交成功 | `ReportCreateDTO.reason` 只有 `@NotBlank`，没有枚举约束 | `@Pattern(regexp="^(illegal\|fake\|price\|harass\|other)$")` |
+| 67 | 订单不存在 / 重复评价返回 code=500 | `CommentServiceImpl` 三处 `ServiceException(String)` | 订单不存在 → 404，重复评价 → 400 |
+| 68 | 分类不存在返回 code=500 | `ItemServiceImpl:503` 同上 | 改为 400 |
+| 69 | 上传 `.exe` 返回 code=500 | `SysFileServiceImpl` 用 `ServiceException.throwIf` 无码抛出 | 改为 400，并提示「仅支持 jpeg、jpg、webp、pdf、png、gif、zip」 |
+| 70 | AI 文案接口空输入返回 200（生成泛泛的模板文案） | `CopywritingRequest` 全是可选字段，且**没有 `title` 字段**——后台「AI 配置 · 在线试用」发的是 `{title}`，被 Jackson 静默丢弃 | DTO 补 `title`（200 字上限），`buildVariables` 用 `firstNonBlank(title, originalTitle, remark)`；`generate()` 前置校验，全空返回 400「请至少填写商品标题或补充说明」 |
+| 71 | AI 估价传负数价格返回 200 | `PriceRequest.price/originalPrice` 无下限校验 | `PriceService.estimate` 前置判断，负数 → 400 |
+
+### 21.3 新增脚本
+
+`tools/edge-test.mjs`（44 项断言，覆盖认证越权、分页边界、不存在资源、发布校验、收藏、订单状态机、评价、举报、AI 边界、文件上传、后台删除保护）：
+
+```bash
+node tools/edge-test.mjs                 # 默认 http://127.0.0.1:8081
+node tools/edge-test.mjs http://127.0.0.1:8081
+```
+
+> 注意：本项目的错误码在响应体 `code` 里（HTTP 恒为 200），脚本判 `code` 而不是 HTTP 状态码；`size=9999` 会被收敛，`current=abc` 由参数绑定抛 400，都算正确行为。
+
+### 21.4 验证方式
+
+改动的 4 个模块（item / ai / system / analysis）复制到 `_env/fb7` 单独 `mvn -o package`，起 9312–9315 临时实例（`--spring.cloud.nacos.discovery.enabled=false`），带 `X-User-Id / X-Perms` 头直连验证 10 项全部 PASS：
+
+```
+PASS item 详情不存在 → 404 / 收藏不存在商品 → 404
+PASS item 发布缺少图片 → 400 / 分类不存在 → 400 / 举报非法原因 → 400
+PASS ai 文案空输入 → 400 / 带标题可生成（title=【九成新】闲置好物…）
+PASS ai 估价负价格 → 400
+PASS system 上传 .exe → 400
+PASS analysis 留存补 7 个点
+```
+
+> 生效方式：后端改动需要重启（`bash scripts/stop-all.sh && bash scripts/start-all.sh`，脚本会因源码比 jar 新自动重建）；前端本轮没有改动。

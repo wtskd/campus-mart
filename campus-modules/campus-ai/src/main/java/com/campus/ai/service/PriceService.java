@@ -7,6 +7,7 @@ import com.campus.ai.provider.AiResponse;
 import com.campus.ai.support.LlmJsonParser;
 import com.campus.ai.support.MockContentFactory;
 import com.campus.api.dto.ItemBriefDTO;
+import com.campus.common.core.exception.ServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,14 @@ public class PriceService {
     private final ItemDataService itemDataService;
 
     public PriceResponse estimate(PriceRequest request) {
+        if (request != null) {
+            if (request.getPrice() != null && request.getPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new ServiceException(400, "期望售价不能为负数");
+            }
+            if (request.getOriginalPrice() != null && request.getOriginalPrice().compareTo(BigDecimal.ZERO) < 0) {
+                throw new ServiceException(400, "商品原价不能为负数");
+            }
+        }
         long start = System.currentTimeMillis();
         PriceRequest source = fillFromItem(request);
         Map<String, String> vars = buildVariables(source);

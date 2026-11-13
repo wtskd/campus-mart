@@ -152,7 +152,7 @@ public class ItemServiceImpl implements ItemService {
         }
         BizItem item = itemMapper.selectById(itemId);
         if (item == null) {
-            throw new ServiceException("商品不存在或已下架");
+            throw new ServiceException(404, "商品不存在或已下架");
         }
         Long userId = SecurityUtils.getUserId();
         LoginUser loginUser = SecurityUtils.get();
@@ -160,7 +160,7 @@ public class ItemServiceImpl implements ItemService {
         boolean owner = userId != null && userId.equals(item.getSellerId());
         boolean visible = isPubliclyVisible(item.getStatus());
         if (!visible && !owner && !admin) {
-            throw new ServiceException("商品不存在或已下架");
+            throw new ServiceException(404, "商品不存在或已下架");
         }
 
         // 浏览量原子自增（update set view_count = view_count + 1），避免并发覆盖
@@ -500,7 +500,7 @@ public class ItemServiceImpl implements ItemService {
     private void checkCategory(Long categoryId) {
         BizCategory category = categoryId == null ? null : categoryMapper.selectById(categoryId);
         if (category == null) {
-            throw new ServiceException("商品分类不存在");
+            throw new ServiceException(400, "商品分类不存在");
         }
         if (!"0".equals(category.getStatus())) {
             throw new ServiceException("该商品分类已停用，请重新选择");
