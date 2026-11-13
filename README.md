@@ -102,7 +102,7 @@ campus-mart/
 ├── sql/                        # 01 建表 / 02 业务种子 / 03-04 权限补丁 / 05 富演示数据 / 06-07 数据修正
 ├── docs/                       # 设计、接口契约、构建运行、测试报告
 ├── scripts/                    # 一键启动/停止/建库脚本（Git Bash 与 PowerShell 两套）
-├── tools/                      # 自测与校验脚本（冒烟 / 契约 / 功能 / 统计重算）
+├── tools/                      # 自测与校验脚本（冒烟 / 契约 / 功能 / 统计重算 / 演示数据生成）
 ├── maven-settings.xml          # 可选：阿里云镜像加速
 └── upload/                     # 上传目录（含 demo 占位图）
 ```
@@ -138,6 +138,15 @@ node tools/check-method-match.mjs # 前端声明 vs 后端映射，缺失应为 
 node tools/refresh-stats.mjs     # 重算统计预聚合表
 node tools/check-page-fields.mjs  # 21 个列表页：表格字段 vs 接口返回字段
 node tools/check-query-params.mjs # 17 个列表页：筛选参数是否被后端识别
+node tools/check-app-api.mjs      # 用户端 17 个接口连通性
+node tools/check-admin-shapes.mjs # 后台 19 项数据结构断言（趋势/RFM/概览/大屏）
+```
+
+演示数据是脚本生成的，可复现（固定随机种子）：
+
+```bash
+node tools/gen-rich-seed.mjs      # 重新生成 sql/05-rich-data.sql（278 商品 / 117 订单 / 580+ AI 日志）
+python tools/gen-seed-business.py # 重新生成 sql/02-seed-business.sql（基础业务种子）
 ```
 
 详细步骤与常见问题见 [docs/06-build-and-run.md](docs/06-build-and-run.md)，验证结果见 [docs/07-verification.md](docs/07-verification.md)。

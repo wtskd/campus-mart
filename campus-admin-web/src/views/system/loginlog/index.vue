@@ -20,11 +20,21 @@
 
     <el-card shadow="never">
       <div class="toolbar">
-        <span class="title">登录日志</span>
-        <span class="tip">记录后台登录轨迹（IP / 浏览器 / 操作系统）</span>
+        <div>
+          <span class="title">登录日志</span>
+          <span class="tip">记录后台登录轨迹（IP / 浏览器 / 操作系统）</span>
+        </div>
+        <div>
+          <el-button size="small" type="danger" :icon="Delete" :disabled="!selection.length" @click="handleDelete">
+            删除
+          </el-button>
+          <el-button size="small" type="warning" :icon="Delete" @click="handleClean">清空</el-button>
+          <el-button size="small" :icon="Refresh" @click="getList">刷新</el-button>
+        </div>
       </div>
 
-      <el-table v-loading="loading" :data="list" border stripe>
+      <el-table v-loading="loading" :data="list" border stripe @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="46" align="center" />
         <el-table-column prop="infoId" label="编号" width="90" align="center" />
         <el-table-column prop="username" label="登录账号" width="130" />
         <el-table-column prop="ipaddr" label="登录 IP" width="140" />
@@ -52,15 +62,49 @@
 </template>
 
 <script setup>
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { ref } from 'vue'
+import { Delete, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import Pagination from '@/components/Pagination/index.vue'
 import { useTable } from '@/composables/useTable'
-import { getLoginLogPage } from '@/api/system'
+import { cleanLoginLog, deleteLoginLogs, getLoginLogPage } from '@/api/system'
 
 const { loading, list, total, query, getList, handleSearch, resetQuery, handlePagination } = useTable(
   getLoginLogPage,
   { userName: '', status: '' }
 )
+
+// ---------------- 删除 / 清空 ----------------
+const selection = ref([])
+
+function handleSelectionChange(rows) {
+  selection.value = rows
+}
+
+async function handleDelete() {
+  if (!selection.value.length) return
+  const ids = selection.value.map((row) => row.infoId).join(',')
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selection.value.length} 条登录日志？`, '提示', { type: 'warning' })
+    await deleteLoginLogs(ids)
+    ElMessage.success('删除成功')
+    getList()
+  } catch (error) {
+    // 取消时静默
+  }
+}
+
+async function handleClean() {
+  try {
+    await ElMessageBox.confirm('确认清空全部登录日志？该操作不可恢复。', '提示', { type: 'warning' })
+    await cleanLoginLog()
+    ElMessage.success('清空成功')
+    query.current = 1
+    getList()
+  } catch (error) {
+    // 取消时静默
+  }
+}
 </script>
 
 <style scoped>

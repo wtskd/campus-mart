@@ -1,7 +1,6 @@
 package com.campus.analysis.mapper;
 
 import com.campus.analysis.domain.entity.StatCategoryDaily;
-import com.campus.analysis.domain.entity.StatFunnelDaily;
 import com.campus.analysis.domain.entity.StatOverviewDaily;
 import com.campus.analysis.domain.entity.StatUserRfm;
 import com.campus.analysis.dto.AiSceneRow;
@@ -18,10 +17,10 @@ import com.campus.analysis.dto.RfmSegmentRow;
 import com.campus.analysis.dto.RfmSignatureRow;
 import com.campus.analysis.dto.RfmUserRow;
 import com.campus.analysis.dto.SellerRankRow;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
 import org.apache.ibatis.annotations.Param;
+
+import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 自定义统计 SQL Mapper。

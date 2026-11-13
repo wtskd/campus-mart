@@ -39,10 +39,17 @@
           <span class="title">操作日志</span>
           <span class="tip">记录后台关键操作，便于答辩演示「可观测性」</span>
         </div>
-        <el-button size="small" :icon="Refresh" @click="getList">刷新</el-button>
+        <div>
+          <el-button size="small" type="danger" :icon="Delete" :disabled="!selection.length" @click="handleDelete">
+            删除
+          </el-button>
+          <el-button size="small" type="warning" :icon="Delete" @click="handleClean">清空</el-button>
+          <el-button size="small" :icon="Refresh" @click="getList">刷新</el-button>
+        </div>
       </div>
 
-      <el-table v-loading="loading" :data="list" border stripe>
+      <el-table v-loading="loading" :data="list" border stripe @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="46" align="center" />
         <el-table-column prop="operId" label="日志编号" width="90" align="center" />
         <el-table-column prop="title" label="操作模块" width="130" show-overflow-tooltip />
         <el-table-column label="操作类型" width="100" align="center">
@@ -112,10 +119,11 @@
 
 <script setup>
 import { ref } from 'vue'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { Delete, Refresh, Search } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import Pagination from '@/components/Pagination/index.vue'
 import { useTable } from '@/composables/useTable'
-import { getOperLogPage } from '@/api/system'
+import { cleanOperLog, deleteOperLogs, getOperLogPage } from '@/api/system'
 
 /**
  * 字段对照（后端 SysOperLog 实体）：
@@ -151,6 +159,38 @@ const detail = ref({})
 function openDetail(row) {
   detail.value = row
   detailVisible.value = true
+}
+
+// ---------------- 删除 / 清空 ----------------
+const selection = ref([])
+
+function handleSelectionChange(rows) {
+  selection.value = rows
+}
+
+async function handleDelete() {
+  if (!selection.value.length) return
+  const ids = selection.value.map((row) => row.operId).join(',')
+  try {
+    await ElMessageBox.confirm(`确认删除选中的 ${selection.value.length} 条日志？`, '提示', { type: 'warning' })
+    await deleteOperLogs(ids)
+    ElMessage.success('删除成功')
+    getList()
+  } catch (error) {
+    // 取消或不通过时静默
+  }
+}
+
+async function handleClean() {
+  try {
+    await ElMessageBox.confirm('确认清空全部操作日志？该操作不可恢复。', '提示', { type: 'warning' })
+    await cleanOperLog()
+    ElMessage.success('清空成功')
+    query.current = 1
+    getList()
+  } catch (error) {
+    // 取消时静默
+  }
 }
 </script>
 

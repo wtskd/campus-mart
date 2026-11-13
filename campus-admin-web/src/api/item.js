@@ -54,7 +54,6 @@ export const handleReport = (data) => request.put(`${PREFIX}/report/handle`, dat
 /* ============================== 公告 ============================== */
 export const getNoticePage = (params) =>
   request.get(`${PREFIX}/notice/page`, { params }).then((data) => normalizePage(data, params))
-export const getNotice = (noticeId) => request.get(`${PREFIX}/notice/${noticeId}`)
 export const addNotice = (data) => request.post(`${PREFIX}/notice`, data)
 export const updateNotice = (data) => request.put(`${PREFIX}/notice`, data)
 export const deleteNotice = (noticeId) => request.delete(`${PREFIX}/notice/${noticeId}`)

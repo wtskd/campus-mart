@@ -60,7 +60,7 @@ $Services = @(
 foreach ($s in $Services) {
     $jarPath = Join-Path $Root $s.Jar
     if (-not (Test-Path $jarPath)) {
-        throw "缺少 $($s.Name) 的 jar：$jarPath`n请先执行: mvn -s `"D:/project/deepseek/person project/_env/maven-settings.xml`" -DskipTests package"
+        throw "缺少 $($s.Name) 的 jar：$jarPath`n请先执行: mvn -s `"$CM/maven-settings.xml`" -DskipTests package"
     }
 }
 

@@ -83,7 +83,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { onLoad, onPullDownRefresh, onReachBottom, onShow } from '@dcloudio/uni-app'
 import itemCard from '@/components/item-card.vue'
 import emptyState from '@/components/empty-state.vue'

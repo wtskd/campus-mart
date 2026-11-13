@@ -3,7 +3,7 @@
  *
  * 后端 campus-analysis 的 DTO 与页面渲染结构不一致：趋势/RFM/留存都包了一层对象，
  * 概览字段用 todayXxx/totalXxx 命名，AI 统计只有 scenes[]。
- * 统一在这里转成页面好用的结构，同时便于 Node 侧（_env/check-admin-shapes.mjs）直接 import 做契约校验。
+ * 统一在这里转成页面好用的结构，同时便于 Node 侧（tools/check-admin-shapes.mjs）直接 import 做契约校验。
  */
 
 export const toArray = (data, key) => {

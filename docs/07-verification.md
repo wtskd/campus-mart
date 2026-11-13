@@ -295,7 +295,7 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 | 61 | 辱骂词只有大模型能识别，模型被限流/不可用时全部放行 | 规则库只有涉黄/赌博/毒品/违禁品/诈骗/代写代考/站外引流七类，没有辱骂类；降级到 `mock` 时 `mock` 恒返回通过 | `SensitiveWordFilter` 新增「辱骂与人身攻击」高危词（傻逼/傻b/煞笔/草泥马/操你妈/你妈死了/去你妈的/贱人/智障…）与缩写正则 `ABUSE_ABBR`（`sb|cnm|cnmb|nmsl|tmd|nmb|wcnm|fuck|shit|bitch|asshole`），命中即 `pass=false, riskLevel=2` |
 | 62 | 缩写子串误伤 | `sb` 若按子串匹配，`usb`、`5sb` 会被判违规 | `ABUSE_ABBR` 用 `(?<![a-z0-9])…(?![a-z0-9])` 限定为独立词；归一化仍会去掉空格与点线，`加 微 信`、`s.b` 这类绕过依旧能命中 |
 
-**验证**（把源码复制到 `_env/fixbuild4` 编译，起两个临时实例：9304 关掉 LLM 复核只看规则、9305 规则 + 模型）：
+**验证**（把源码复制到工作区外的临时目录编译，起两个临时实例：9304 关掉 LLM 复核只看规则、9305 规则 + 模型）：
 
 ```
 端口 9304（仅规则引擎）
@@ -309,7 +309,7 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 
 正在运行的生产 9204 实例（改动前代码 + 真实 DeepSeek Key）实测同样能拦住：`sb`→risk=1「标题包含辱骂性词汇」1882ms、`傻逼`→760ms、`cnmb`→「辱骂性脏话缩写（cnmb）」1007ms、`nmsl`→1210ms，正常商品 681ms 通过。
 
-**注意**：`ModerationRequest.content` 与规则库属于后端改动，需要重启 ai 服务生效（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）；前端「在线试用」的字段修正刷新页面即可。临时实例 9304/9305 由沙箱启动、`taskkill` 报「拒绝访问」无法回收，重启电脑后自然释放（对应 `_env/fixbuild4` 目录也需重启后删除）。
+**注意**：`ModerationRequest.content` 与规则库属于后端改动，需要重启 ai 服务生效（`bash scripts/stop-all.sh && bash scripts/start-all.sh`）；前端「在线试用」的字段修正刷新页面即可。临时实例与临时构建目录已在 2026-11-13 的代码清理中回收删除。
 
 ## 18. 「一个学生有 4 个角色」核查（2026-11-12，用户实测）
 
@@ -324,3 +324,43 @@ AI 调用降级成功：remote → mock（耗时 1ms）
 - 交互：「分配角色」弹窗补灰字说明「可多选，登录后的权限是所选角色的并集；学生账号通常只需要「普通用户」」，并加保护——一个角色都不选时提示「至少为用户保留一个角色」，避免出现无角色账号（此时后端 `update` 会先删光、`saveUserRoles` 又因空列表直接返回）。
 
 **给答辩的解释**：这是 RBAC 的多角色模型，权限取并集；演示数据里学生保留单一「普通用户」角色，管理员/运营/审核各司其职，需要看组合权限时再把角色勾给同一个账号即可（例如让 `operator` 临时兼「审核专员」演示菜单变化）。
+
+## 19. 代码清理（2026-11-13）
+
+用户要求「清理一下代码」。原则：只做**不改变行为**的删除与去重，清理后用自测脚本回归。
+
+**后端**
+- 删除未被任何代码引用的类 `campus-modules/campus-analysis/src/main/java/com/campus/analysis/dto/RootCategoryRow.java`（早已被 `StatMapper.xml` 的内联 resultType 取代）。
+- 清理 9 处无用 import：`StatUserRfm`（IdType）、`StatCustomMapper`（StatFunnelDaily、LocalDateTime）、`StatRefreshServiceImpl`（StatFunnelDaily）、`AppOrderController`（PutMapping，订单接口早已改成 `@RequestMapping({POST, PUT})`）、`ItemServiceImpl`（BigDecimal）、`MessageServiceImpl`（HashSet）、`SysDictServiceImpl`（Objects）、`SysFileServiceImpl`（Arrays）。
+- 重排 `StatCustomMapper.java` 的 import 分组（java.* 统一放 mybatis 之后）。
+
+**前端**
+- `campus-admin-web/src/api/system.js`：删除 10 个零引用的封装（`getRole / getMenuList / getMenu / getMenuTreeselect / getDeptList / getDept / getDeptTreeselect / getDictTypeOptions / getDictDataList / getConfigByKey`），保留的是被页面或内部函数真正调用的。
+- `campus-admin-web/src/api/item.js`：删除零引用的 `getNotice`。
+- `campus-app/src/pages/index/index.vue`：去掉未使用的 `computed` 导入。
+
+**顺带补全（不是清理，是发现日志管理缺按钮）**
+- 操作日志、登录日志页原本只有查询，后端 `DELETE /system/operlog/{ids}`、`DELETE /system/operlog/clean`、`DELETE /system/loginlog/{ids}`、`DELETE /system/loginlog/clean` 已实现但前端没入口。
+- 两页补「多选 + 删除 + 清空 + 刷新」：操作日志按 `operId`、登录日志按 `infoId` 拼 ids，`ElMessageBox.confirm` 二次确认，删除/清空后重新拉列表。
+- 实测：`DELETE /api/system/operlog/195` → 200「删除成功」；`DELETE /api/system/loginlog/96` → 200，登录日志总数 96 → 95。
+
+**工程卫生**
+- `tools/` 收齐 10 个脚本，新增演示数据生成器 `tools/gen-rich-seed.mjs`、`tools/gen-seed-business.py`（改成脚本相对路径，不再依赖固定工作目录），README 补用法。
+- `sql/05-rich-data.sql` 由生成器重跑验证：除文件头注释里的生成器路径，内容零差异（固定随机种子，可复现）。
+- 删除工作区 `_env/` 下的全部临时产物（m2repo 缓存、临时 jar、fixbuild 构建目录、调试日志与一次性脚本），只保留运行所需的 `nacos/`（Nacos 安装目录）与 `ai-key.env`（AI 密钥，不入库）。
+- `scripts/start-all.ps1` 的报错提示改为指向仓库内 `maven-settings.xml`；`analysisShape.js` 注释里的契约脚本路径改为 `tools/check-admin-shapes.mjs`。
+- 清理空目录 `upload/2026/11/12`（上传测试残留，`.gitignore` 已忽略 `upload/2*/`）。
+
+**清理后回归**（服务未重启，验证的是「清理没有改动任何对外行为」）
+
+```bash
+node tools/http-checks.js        # PASS=33 FAIL=0
+node tools/check-method-match.mjs # 前端调用但后端没有：0（后端映射 193 个）
+node tools/check-page-fields.mjs  # checked=21 problems=0
+node tools/check-query-params.mjs # checked=49 problems=0 warns=4
+mvn -o -B -q -DskipTests compile  # exit 0
+cd campus-admin-web && npm run build   # ✓ built in 7.7s
+cd campus-app && npm run build:h5      # DONE Build complete.
+```
+
+> 操作日志/登录日志的删除按钮属于前端改动，刷新页面即可；后端本轮只删了无用 import，已编译验证，但运行中的 jar 仍是旧包——下次 `bash scripts/start-all.sh` 会因源码比 jar 新而自动重建。

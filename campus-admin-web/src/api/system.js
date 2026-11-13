@@ -80,7 +80,6 @@ export const getDeptTree = () => getDeptTreeFull()
 /* ============================== 角色 ============================== */
 export const getRolePage = (params) =>
   request.get(`${PREFIX}/role/list`, { params }).then((data) => normalizePage(data, params))
-export const getRole = (roleId) => request.get(`${PREFIX}/role/${roleId}`)
 export const addRole = (data) => request.post(`${PREFIX}/role`, data)
 export const updateRole = (data) => request.put(`${PREFIX}/role`, data)
 export const deleteRole = (roleIds) => request.delete(`${PREFIX}/role/${roleIds}`)
@@ -98,27 +97,19 @@ export const updateRoleMenu = (roleId, menuIds) =>
 /** 菜单列表：契约是扁平列表，这里转成树给「菜单管理」树表格使用 */
 export const getMenuTree = () =>
   request.get(`${PREFIX}/menu/list`).then((data) => listToTree(Array.isArray(data) ? data : [], 'menuId', 'parentId'))
-export const getMenuList = () => request.get(`${PREFIX}/menu/list`)
-export const getMenu = (menuId) => request.get(`${PREFIX}/menu/${menuId}`)
 export const addMenu = (data) => request.post(`${PREFIX}/menu`, data)
 export const updateMenu = (data) => request.put(`${PREFIX}/menu`, data)
 export const deleteMenu = (menuId) => request.delete(`${PREFIX}/menu/${menuId}`)
 /** 菜单下拉树（角色授权 / 菜单上级选择） */
-export const getMenuTreeselect = () =>
-  request.get(`${PREFIX}/menu/treeselect`).then((data) => (Array.isArray(data) ? data : []))
 
 /* ============================== 部门 / 学院 ============================== */
-export const getDeptList = () => request.get(`${PREFIX}/dept/list`)
 export const getDeptTreeFull = () =>
   request
     .get(`${PREFIX}/dept/list`)
     .then((data) => listToTree(Array.isArray(data) ? data : [], 'deptId', 'parentId'))
-export const getDept = (deptId) => request.get(`${PREFIX}/dept/${deptId}`)
 export const addDept = (data) => request.post(`${PREFIX}/dept`, data)
 export const updateDept = (data) => request.put(`${PREFIX}/dept`, data)
 export const deleteDept = (deptId) => request.delete(`${PREFIX}/dept/${deptId}`)
-export const getDeptTreeselect = () =>
-  request.get(`${PREFIX}/dept/treeselect`).then((data) => (Array.isArray(data) ? data : []))
 
 /* ============================== 字典 ============================== */
 export const getDictTypePage = (params) =>
@@ -126,10 +117,7 @@ export const getDictTypePage = (params) =>
 export const addDictType = (data) => request.post(`${PREFIX}/dict/type`, data)
 export const updateDictType = (data) => request.put(`${PREFIX}/dict/type`, data)
 export const deleteDictType = (dictIds) => request.delete(`${PREFIX}/dict/type/${dictIds}`)
-export const getDictTypeOptions = () => request.get(`${PREFIX}/dict/type/optionselect`)
 
-export const getDictDataList = (params) =>
-  request.get(`${PREFIX}/dict/data/list`, { params }).then((data) => normalizePage(data, params))
 export const addDictData = (data) => request.post(`${PREFIX}/dict/data`, data)
 export const updateDictData = (data) => request.put(`${PREFIX}/dict/data`, data)
 export const deleteDictData = (dictCodes) => request.delete(`${PREFIX}/dict/data/${dictCodes}`)
@@ -154,7 +142,6 @@ export const getConfigPage = (params) =>
 export const addConfig = (data) => request.post(`${PREFIX}/config`, data)
 export const updateConfig = (data) => request.put(`${PREFIX}/config`, data)
 export const deleteConfig = (configIds) => request.delete(`${PREFIX}/config/${configIds}`)
-export const getConfigByKey = (configKey) => request.get(`${PREFIX}/config/configKey/${configKey}`)
 
 /* ============================== 日志 ============================== */
 export const getOperLogPage = (params) =>

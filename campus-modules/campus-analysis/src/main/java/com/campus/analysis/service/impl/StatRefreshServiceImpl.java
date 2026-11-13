@@ -2,7 +2,6 @@ package com.campus.analysis.service.impl;
 
 import com.campus.analysis.constant.AnalysisConstants;
 import com.campus.analysis.domain.entity.StatCategoryDaily;
-import com.campus.analysis.domain.entity.StatFunnelDaily;
 import com.campus.analysis.domain.entity.StatOverviewDaily;
 import com.campus.analysis.dto.CategoryAggRow;
 import com.campus.analysis.dto.CategoryDailyRow;
