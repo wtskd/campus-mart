@@ -67,27 +67,6 @@
       <view class="send-btn" :class="{ disabled: sending }" @tap="send()">发送</view>
     </view>
 
-    <!-- 引用来源详情：点来源条目打开，展示知识库条目正文摘要 -->
-    <view v-if="sourceVisible" class="src-mask" @tap="closeSource">
-      <view class="src-sheet" @tap.stop>
-        <view class="src-head">
-          <text class="src-title">{{ activeSource.title || '知识库片段' }}</text>
-          <text class="src-close" @tap="closeSource">✕</text>
-        </view>
-        <view class="src-meta">
-          <text v-if="activeSource.knowledgeId">知识条目 #{{ activeSource.knowledgeId }}</text>
-          <text v-if="activeSource.score !== undefined && activeSource.score !== null">
-            · 相关度 {{ Number(activeSource.score).toFixed(2) }}
-          </text>
-        </view>
-        <scroll-view class="src-body" scroll-y>
-          <text class="src-text">
-            {{ activeSource.snippet || '这条知识还没有摘要内容，可在后台「AI 管理 → 知识库」查看全文。' }}
-          </text>
-        </scroll-view>
-        <view class="src-tip">内容来自平台知识库，AI 回答基于该条目检索增强生成</view>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -107,17 +86,25 @@ const props = defineProps({
   showHeader: { type: Boolean, default: true }
 })
 
-const sourceVisible = ref(false)
-const activeSource = ref({})
-
+/**
+ * 点「引用来源」→ 弹窗展示该知识条目的正文摘要。
+ * 用 uni.showModal 而不是自绘弹层：H5 与微信小程序的页面容器层级不同，
+ * 自绘 fixed 弹层在小程序里会被页面裁剪，showModal 是原生层，两个端表现一致。
+ */
 function openSource(source) {
   if (!source) return
-  activeSource.value = source
-  sourceVisible.value = true
-}
-
-function closeSource() {
-  sourceVisible.value = false
+  const title = source.title || '知识库条目'
+  const meta = [
+    source.knowledgeId ? `条目 #${source.knowledgeId}` : '',
+    source.score !== undefined && source.score !== null ? `相关度 ${Number(source.score).toFixed(2)}` : ''
+  ].filter(Boolean).join(' · ')
+  const body = source.snippet || '这条知识还没有摘要内容，可在后台「AI 管理 → 知识库」查看全文。'
+  uni.showModal({
+    title,
+    content: `${meta ? meta + '\n\n' : ''}${body}\n\n—— 内容来自平台知识库，AI 回答经该条目检索增强生成`,
+    showCancel: false,
+    confirmText: '知道了'
+  })
 }
 
 const messages = ref([
@@ -304,61 +291,6 @@ defineExpose({ send, reset })
     border-radius: 8rpx;
   }
 
-  /* 引用来源详情弹层 */
-  .src-mask {
-    position: fixed;
-    left: var(--window-left, 0);
-    right: var(--window-right, 0);
-    top: 0;
-    bottom: 0;
-    z-index: 99;
-    background-color: rgba(0, 0, 0, 0.45);
-    display: flex;
-    align-items: flex-end;
-  }
-  .src-sheet {
-    width: 100%;
-    background-color: #ffffff;
-    border-radius: 24rpx 24rpx 0 0;
-    padding: 28rpx 30rpx calc(28rpx + env(safe-area-inset-bottom));
-  }
-  .src-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .src-title {
-    flex: 1;
-    font-size: 30rpx;
-    font-weight: 600;
-    color: $cm-text;
-  }
-  .src-close {
-    padding: 0 8rpx;
-    font-size: 28rpx;
-    color: $cm-text-4;
-  }
-  .src-meta {
-    margin-top: 8rpx;
-    font-size: 22rpx;
-    color: $cm-text-4;
-  }
-  .src-body {
-    margin-top: 18rpx;
-    max-height: 46vh;
-  }
-  .src-text {
-    font-size: 26rpx;
-    line-height: 44rpx;
-    color: $cm-text-2;
-  }
-  .src-tip {
-    margin-top: 20rpx;
-    padding-top: 16rpx;
-    border-top: 1rpx dashed $cm-border;
-    font-size: 20rpx;
-    color: $cm-text-4;
-  }
   .meta {
     margin-top: 8rpx;
     font-size: 20rpx;

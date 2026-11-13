@@ -373,8 +373,9 @@ cd campus-app && npm run build:h5      # DONE Build complete.
 
 **改动**：
 - 后端 `ChatResponse.Source` 增加 `snippet` 字段（知识条目正文摘要），`ChatService.toSources` 用 `MockContentFactory.abbreviate(hit.getContent(), 260)` 填充；`KnowledgeHitVO` 本来就带 `content`，不需要额外查询。
-- 用户端来源条目改成可点击（`hover-class="source-hover"` + 右侧 `›`），点开后底部弹出「知识条目 #id · 相关度 → 正文摘要」，附一行说明「内容来自平台知识库，AI 回答基于该条目检索增强生成」。
+- 用户端来源条目改成可点击（`hover-class="source-hover"` + 右侧 `›`），点开后用 `uni.showModal` 弹出「知识条目 #id · 相关度」+ 正文摘要，末尾一行「内容来自平台知识库，AI 回答经该条目检索增强生成」。
 - 未重启后端时（旧包没有 `snippet`）弹层给兜底文案：「这条知识还没有摘要内容，可在后台「AI 管理 → 知识库」查看全文」，不会白屏。
+- **为什么不用自绘弹层**：第一版写了 `position: fixed` 的底部弹层，H5 里点条目只看到按下高亮、弹层不出现——用户实测反馈「点了有变色，但是没其他的反应」。原因是自绘 fixed 层受页面容器层级/裁剪影响（小程序端更明显），改用 `uni.showModal` 原生弹窗，H5 与微信小程序表现一致，也不再依赖 CSS 层级。
 
 **验证**（临时实例 9306，用复制目录构建的新包，避免锁住运行中的 jar）：
 
